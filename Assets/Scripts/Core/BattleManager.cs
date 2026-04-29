@@ -28,7 +28,11 @@ public class BattleManager : MonoBehaviour
     private string lastPlayedKanji = "";
     private CardElement lastPlayedElement = CardElement.None;
     private int elementChainCount = 0;
-    private float turnStartTime; // ターン開始時刻の記録
+    private float turnStartTime;
+
+    // 同字連撃コンボ
+    public int currentComboCount = 0;
+    private string lastComboKanji = "";
     
     // 熟語によるボーナスダメージ等
     private System.Collections.Generic.Dictionary<string, int> jukugoCombos = new System.Collections.Generic.Dictionary<string, int>()
@@ -72,6 +76,8 @@ public class BattleManager : MonoBehaviour
         lastPlayedKanji = "";
         lastPlayedElement = CardElement.None;
         elementChainCount = 0;
+        currentComboCount = 0;
+        lastComboKanji = "";
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
@@ -91,6 +97,8 @@ public class BattleManager : MonoBehaviour
         lastPlayedKanji = "";
         lastPlayedElement = CardElement.None;
         elementChainCount = 0;
+        currentComboCount = 0;
+        lastComboKanji = "";
     }
 
     /// <summary>
@@ -109,10 +117,12 @@ public class BattleManager : MonoBehaviour
         enemyCurrentHP = enemy.maxHP;
         isPlayerTurn = true;
         enemyIsStunned = false;
-        
+
         lastPlayedKanji = "";
         lastPlayedElement = CardElement.None;
         elementChainCount = 0;
+        currentComboCount = 0;
+        lastComboKanji = "";
         battleState = BattleState.PlayerTurn;
 
         Debug.Log($"[BattleManager] 戦闘開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
@@ -245,6 +255,49 @@ public class BattleManager : MonoBehaviour
             elementChainCount = 1;
         }
 
+        // 同字連撃コンボ判定（Attack 系カードのみ）
+        bool isAttackType = card.effectType == CardEffectType.Attack ||
+                            card.effectType == CardEffectType.AttackAll ||
+                            card.effectType == CardEffectType.Special;
+        if (isAttackType)
+        {
+            if (!string.IsNullOrEmpty(lastComboKanji) && card.kanji == lastComboKanji)
+            {
+                currentComboCount++;
+                if (currentComboCount >= 3)
+                {
+                    attackValue = Mathf.CeilToInt(attackValue * 2.0f);
+                    AddBattleLog($"<color=#FF44FF><b>{currentComboCount} COMBO!! ×2.0!!</b></color>");
+                    if (VFXManager.Instance != null && battleUI != null)
+                    {
+                        VFXManager.Instance.PlayComboEffect(
+                            battleUI.gameObject,
+                            $"{currentComboCount} COMBO!!\n×2.0 DAMAGE!",
+                            new Color(1f, 0.2f, 1f));
+                        if (battleUI.enemyKanjiText != null)
+                            VFXManager.Instance.PlayCriticalHitVFX(battleUI.enemyKanjiText.transform.position);
+                    }
+                }
+                else if (currentComboCount == 2)
+                {
+                    attackValue = Mathf.CeilToInt(attackValue * 1.5f);
+                    AddBattleLog($"<color=#FF88FF><b>2 COMBO! ×1.5 DAMAGE!</b></color>");
+                    if (VFXManager.Instance != null && battleUI != null)
+                    {
+                        VFXManager.Instance.PlayComboEffect(
+                            battleUI.gameObject,
+                            $"2 COMBO!\n×1.5 DAMAGE!",
+                            new Color(1f, 0.5f, 1f));
+                    }
+                }
+            }
+            else
+            {
+                currentComboCount = 1;
+            }
+            lastComboKanji = card.kanji;
+        }
+
         // 次回コンボの布石を記憶
         lastPlayedKanji = card.kanji;
         lastPlayedElement = card.element;
@@ -336,6 +389,10 @@ public class BattleManager : MonoBehaviour
     {
         if (battleState != BattleState.PlayerTurn) return;
 
+        // ターン終了でコンボリセット
+        currentComboCount = 0;
+        lastComboKanji = "";
+
         battleState = BattleState.EnemyTurn;
         isPlayerTurn = false;
         Debug.Log("[BattleManager] プレイヤーターン終了");
@@ -407,6 +464,10 @@ public class BattleManager : MonoBehaviour
 
     private void ReturnToPlayerTurn()
     {
+        // 新ターン開始でコンボリセット
+        currentComboCount = 0;
+        lastComboKanji = "";
+
         battleState = BattleState.PlayerTurn;
         isAutoEndingTurn = false;
         isPlayerTurn = true;

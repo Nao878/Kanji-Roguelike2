@@ -1,60 +1,154 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// HPバー表示管理（オーバーヒール金色表示対応）
+/// HPバー表示管理（Tweenアニメーション・格ゲー風遅延バー・オーバーヒール金色対応）
 /// </summary>
 public class HPBarController : MonoBehaviour
 {
     [Header("Bar Parts")]
     public Image normalBar;
+    public Image delayBar;      // 格ゲー風：ダメージ後に遅れて減る赤いバー
     public Image overhealBar;
     public TextMeshProUGUI statusIcon;
 
     [Header("Colors")]
-    public Color normalColor = new Color(0.2f, 0.8f, 0.2f);
-    public Color lowHPColor = new Color(0.9f, 0.2f, 0.2f);
-    public Color overhealColor = new Color(1f, 0.85f, 0f);
+    public Color normalColor    = new Color(0.2f, 0.8f, 0.2f);
+    public Color lowHPColor     = new Color(0.9f, 0.2f, 0.2f);
+    public Color overhealColor  = new Color(1f, 0.85f, 0f);
+
+    [Header("Animation")]
+    public float mainTweenDuration    = 0.35f;
+    public float delayBarWait         = 0.25f;
+    public float delayBarTweenDuration = 0.45f;
+
+    private float currentFill = 1f;
+    private Coroutine mainTween;
+    private Coroutine delayTween;
 
     public bool IsOverhealed { get; private set; }
 
+    // ──────────────────────────────────────────────
+    // 通常の HP 更新（Tween あり）
+    // ──────────────────────────────────────────────
     public void SetHP(int current, int max)
     {
         if (normalBar == null) return;
         IsOverhealed = current > max;
 
-        float normalFill = IsOverhealed ? 1f : (max > 0 ? (float)current / max : 0f);
-        normalBar.fillAmount = normalFill;
+        float newFill = IsOverhealed ? 1f : (max > 0 ? (float)current / max : 0f);
+        bool isDamage = newFill < currentFill;
 
-        if (IsOverhealed)
+        RefreshColor(newFill);
+        RefreshOverhealBar(current, max);
+
+        if (mainTween != null) StopCoroutine(mainTween);
+        mainTween = StartCoroutine(CoMain(newFill));
+
+        if (delayBar != null)
         {
-            normalBar.color = overhealColor;
-            if (overhealBar != null)
+            if (isDamage)
             {
-                float extra = max > 0 ? (float)(current - max) / max : 0f;
-                overhealBar.fillAmount = Mathf.Clamp01(extra);
-                overhealBar.gameObject.SetActive(true);
+                if (delayTween != null) StopCoroutine(delayTween);
+                delayTween = StartCoroutine(CoDelay(newFill));
+            }
+            else
+            {
+                // 回復は遅延バーも即時追従
+                delayBar.fillAmount = newFill;
             }
         }
-        else
-        {
-            normalBar.color = normalFill < 0.3f ? lowHPColor : normalColor;
-            if (overhealBar != null) overhealBar.gameObject.SetActive(false);
-        }
+
+        currentFill = newFill;
     }
 
+    // ──────────────────────────────────────────────
+    // アニメなし即時セット（戦闘開始・リセット時）
+    // ──────────────────────────────────────────────
+    public void SetHPImmediate(int current, int max)
+    {
+        if (normalBar == null) return;
+        IsOverhealed = current > max;
+        float fill = IsOverhealed ? 1f : (max > 0 ? (float)current / max : 0f);
+        normalBar.fillAmount = fill;
+        if (delayBar != null) delayBar.fillAmount = fill;
+        currentFill = fill;
+        RefreshColor(fill);
+        RefreshOverhealBar(current, max);
+    }
+
+    // ──────────────────────────────────────────────
+    // ステータスアイコン（スタン/バフ表示）
+    // ──────────────────────────────────────────────
     public void SetStatusIcon(string text)
     {
         if (statusIcon == null) return;
         if (string.IsNullOrEmpty(text))
-        {
             statusIcon.gameObject.SetActive(false);
-        }
         else
         {
             statusIcon.text = text;
             statusIcon.gameObject.SetActive(true);
         }
+    }
+
+    // ──────────────────────────────────────────────
+    // 内部ヘルパー
+    // ──────────────────────────────────────────────
+    private void RefreshColor(float fill)
+    {
+        if (normalBar == null) return;
+        normalBar.color = IsOverhealed ? overhealColor : (fill < 0.3f ? lowHPColor : normalColor);
+    }
+
+    private void RefreshOverhealBar(int current, int max)
+    {
+        if (overhealBar == null) return;
+        if (IsOverhealed)
+        {
+            float extra = max > 0 ? (float)(current - max) / max : 0f;
+            overhealBar.fillAmount = Mathf.Clamp01(extra);
+            overhealBar.gameObject.SetActive(true);
+        }
+        else
+        {
+            overhealBar.gameObject.SetActive(false);
+        }
+    }
+
+    // メインバー：ease-out でスッと減る（0.35 秒）
+    private IEnumerator CoMain(float target)
+    {
+        float start = normalBar.fillAmount;
+        float elapsed = 0f;
+        while (elapsed < mainTweenDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / mainTweenDuration);
+            float eased = 1f - (1f - t) * (1f - t);   // ease-out quad
+            normalBar.fillAmount = Mathf.Lerp(start, target, eased);
+            yield return null;
+        }
+        normalBar.fillAmount = target;
+        mainTween = null;
+    }
+
+    // 遅延バー：0.25 秒待機後にゆっくり追いかける（0.45 秒）
+    private IEnumerator CoDelay(float target)
+    {
+        yield return new WaitForSeconds(delayBarWait);
+        float start = delayBar.fillAmount;
+        float elapsed = 0f;
+        while (elapsed < delayBarTweenDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / delayBarTweenDuration);
+            delayBar.fillAmount = Mathf.Lerp(start, target, t);
+            yield return null;
+        }
+        delayBar.fillAmount = target;
+        delayTween = null;
     }
 }

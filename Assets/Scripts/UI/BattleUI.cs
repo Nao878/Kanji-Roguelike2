@@ -75,6 +75,20 @@ public class BattleUI : MonoBehaviour
         var bgImg = barObj.AddComponent<Image>();
         bgImg.color = new Color(0.08f, 0.08f, 0.08f, 0.85f);
 
+        // 遅延バー（格ゲー風：ダメージ後に遅れて減る）
+        var delayObj = new GameObject("DelayFill");
+        delayObj.transform.SetParent(barObj.transform, false);
+        var delayRect = delayObj.AddComponent<RectTransform>();
+        delayRect.anchorMin = new Vector2(0f, 0f);
+        delayRect.anchorMax = new Vector2(1f, 1f);
+        delayRect.offsetMin = new Vector2(2f, 2f);
+        delayRect.offsetMax = new Vector2(-2f, -2f);
+        var delayImg = delayObj.AddComponent<Image>();
+        delayImg.type = Image.Type.Filled;
+        delayImg.fillMethod = Image.FillMethod.Horizontal;
+        delayImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        delayImg.color = isEnemy ? new Color(0.6f, 0.05f, 0.05f) : new Color(0.85f, 0.1f, 0.1f);
+
         var fillObj = new GameObject("NormalFill");
         fillObj.transform.SetParent(barObj.transform, false);
         var fillRect = fillObj.AddComponent<RectTransform>();
@@ -119,6 +133,7 @@ public class BattleUI : MonoBehaviour
 
         var ctrl = barObj.AddComponent<HPBarController>();
         ctrl.normalBar = fillImg;
+        ctrl.delayBar  = delayImg;
         ctrl.overhealBar = ovhImg;
         ctrl.statusIcon = iconTmp;
         if (!isEnemy)
@@ -359,6 +374,14 @@ public class BattleUI : MonoBehaviour
         if (enemyHPText != null)
         {
             enemyHPText.alpha = 1f;
+        }
+
+        // 敵HPバーを即時リセット（アニメーションなし）
+        if (enemyHPBar != null)
+        {
+            var bm = GameManager.Instance?.battleManager;
+            if (bm?.currentEnemyData != null)
+                enemyHPBar.SetHPImmediate(bm.enemyCurrentHP, bm.currentEnemyData.maxHP);
         }
 
         Debug.Log("[BattleUI] 敵表示リセット完了");
