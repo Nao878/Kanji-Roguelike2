@@ -309,6 +309,16 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// プレイヤーを回復（オーバーヒール対応：上限はMaxHP×2）
+    /// </summary>
+    public void Heal(int amount)
+    {
+        int maxOverheal = playerMaxHP * 2;
+        playerHP = Mathf.Min(maxOverheal, playerHP + amount);
+        Debug.Log($"[GameManager] HP回復 +{amount} → HP:{playerHP}/{playerMaxHP}（上限:{maxOverheal}）");
+    }
+
+    /// <summary>
     /// ターン開始時のリセット
     /// </summary>
     /// <summary>

@@ -272,10 +272,13 @@ public class BattleManager : MonoBehaviour
 
             case CardEffectType.Heal:
                 int healVal = card.effectValue + card.defenseModifier;
-                gm.playerHP = Mathf.Min(gm.playerMaxHP, gm.playerHP + healVal);
+                gm.Heal(healVal);
                 AddBattleLog($"『{card.DisplayName}』でHP{healVal}回復！");
                 if (VFXManager.Instance != null && battleUI != null && battleUI.playerHPText != null)
+                {
                     VFXManager.Instance.PlayHealVFX(battleUI.playerHPText.transform.position);
+                    VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, healVal);
+                }
                 break;
 
             case CardEffectType.Buff:
@@ -288,14 +291,15 @@ public class BattleManager : MonoBehaviour
                 int spAtkVal = attackValue;
                 enemyCurrentHP = Mathf.Max(0, enemyCurrentHP - spAtkVal);
                 int healAmount = Mathf.CeilToInt(spAtkVal * 0.6f);
-                gm.playerHP = Mathf.Min(gm.playerMaxHP, gm.playerHP + healAmount);
+                gm.Heal(healAmount);
                 AddBattleLog($"『{card.DisplayName}』で{spAtkVal}ダメージ＋{healAmount}回復！");
                 if (battleUI != null && battleUI.enemyKanjiText != null && VFXManager.Instance != null)
                 {
                     VFXManager.Instance.PlayDamageEffect(battleUI.enemyKanjiText.gameObject, spAtkVal);
-                    // CFXR通常攻撃ヒットエフェクト
                     if (!isMirrorClash)
                         VFXManager.Instance.PlayAttackHitVFX(battleUI.enemyKanjiText.transform.position);
+                    if (battleUI.playerHPText != null)
+                        VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, healAmount);
                 }
                 break;
 

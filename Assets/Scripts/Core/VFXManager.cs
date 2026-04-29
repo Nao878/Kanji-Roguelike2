@@ -258,6 +258,62 @@ public class VFXManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 回復数値ポップアップ（緑色・放物線飛び出し）
+    /// </summary>
+    public void SpawnHealNumber(Vector3 position, int amount)
+    {
+        Transform canvasParent = GetCanvasParent();
+        if (canvasParent == null) return;
+
+        GameObject textObj = new GameObject($"HealText_{amount}");
+        textObj.transform.SetParent(canvasParent, false);
+        textObj.transform.SetAsLastSibling();
+
+        var tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.text = $"+{amount}";
+        tmp.fontSize = 52;
+        tmp.color = new Color(0.2f, 1f, 0.45f);
+        tmp.alignment = TextAlignmentOptions.Center;
+        if (appFont != null) tmp.font = appFont;
+        tmp.outlineWidth = 0.25f;
+        tmp.outlineColor = new Color(0f, 0.3f, 0f);
+
+        var rect = textObj.GetComponent<RectTransform>();
+        SetLocalPositionFromWorld(rect, position, canvasParent);
+        StartCoroutine(CoHealFloating(textObj));
+    }
+
+    private IEnumerator CoHealFloating(GameObject obj)
+    {
+        float duration = 1.0f;
+        float elapsed = 0f;
+        Vector3 velocity = new Vector3(Random.Range(-30f, 30f), Random.Range(180f, 280f), 0f);
+        Vector3 gravity = new Vector3(0, -600f, 0);
+        var tmp = obj.GetComponent<TextMeshProUGUI>();
+        obj.transform.localScale = Vector3.zero;
+        while (elapsed < duration)
+        {
+            if (obj == null) yield break;
+            float t = elapsed / duration;
+            if (t < 0.15f)
+                obj.transform.localScale = Vector3.one * Mathf.Lerp(0f, 1.3f, t / 0.15f);
+            else if (t < 0.25f)
+                obj.transform.localScale = Vector3.one * Mathf.Lerp(1.3f, 1.0f, (t - 0.15f) / 0.1f);
+
+            obj.transform.localPosition += velocity * Time.deltaTime;
+            velocity += gravity * Time.deltaTime;
+            if (elapsed > duration * 0.55f)
+            {
+                float alpha = 1f - (elapsed - duration * 0.55f) / (duration * 0.45f);
+                tmp.alpha = alpha;
+            }
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        Destroy(obj);
+    }
+
     private IEnumerator CoShakeEffect(GameObject target)
     {
         var rect = target.GetComponent<RectTransform>();

@@ -31,6 +31,10 @@ public class BattleUI : MonoBehaviour
     [Header("フォント")]
     public TMP_FontAsset appFont;
 
+    [Header("HPバー（省略時は自動生成）")]
+    public HPBarController playerHPBar;
+    public HPBarController enemyHPBar;
+
     private List<CardController> handCards = new List<CardController>();
 
     private void Start()
@@ -44,6 +48,85 @@ public class BattleUI : MonoBehaviour
         {
             fusionButton.onClick.AddListener(OnFusionClicked);
         }
+
+        if (playerHPBar == null && playerHPText != null)
+            playerHPBar = CreateHPBar(playerHPText.transform, false);
+        if (enemyHPBar == null && enemyHPText != null)
+            enemyHPBar = CreateHPBar(enemyHPText.transform, true);
+    }
+
+    /// <summary>
+    /// HPバーUIをコードで動的生成
+    /// </summary>
+    private HPBarController CreateHPBar(Transform attachTo, bool isEnemy)
+    {
+        if (attachTo == null) return null;
+
+        var barObj = new GameObject("HPBar");
+        barObj.transform.SetParent(attachTo, false);
+
+        var barRect = barObj.AddComponent<RectTransform>();
+        barRect.anchorMin = new Vector2(0f, 0f);
+        barRect.anchorMax = new Vector2(1f, 0f);
+        barRect.pivot = new Vector2(0.5f, 1f);
+        barRect.anchoredPosition = new Vector2(0f, -2f);
+        barRect.sizeDelta = new Vector2(0f, 14f);
+
+        var bgImg = barObj.AddComponent<Image>();
+        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 0.85f);
+
+        var fillObj = new GameObject("NormalFill");
+        fillObj.transform.SetParent(barObj.transform, false);
+        var fillRect = fillObj.AddComponent<RectTransform>();
+        fillRect.anchorMin = new Vector2(0f, 0f);
+        fillRect.anchorMax = new Vector2(1f, 1f);
+        fillRect.offsetMin = new Vector2(2f, 2f);
+        fillRect.offsetMax = new Vector2(-2f, -2f);
+        var fillImg = fillObj.AddComponent<Image>();
+        fillImg.type = Image.Type.Filled;
+        fillImg.fillMethod = Image.FillMethod.Horizontal;
+        fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fillImg.color = isEnemy ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.2f, 0.8f, 0.2f);
+
+        var ovhObj = new GameObject("OverhealFill");
+        ovhObj.transform.SetParent(barObj.transform, false);
+        var ovhRect = ovhObj.AddComponent<RectTransform>();
+        ovhRect.anchorMin = new Vector2(0f, 0f);
+        ovhRect.anchorMax = new Vector2(1f, 1f);
+        ovhRect.offsetMin = new Vector2(2f, 1f);
+        ovhRect.offsetMax = new Vector2(-2f, 0f);
+        var ovhImg = ovhObj.AddComponent<Image>();
+        ovhImg.type = Image.Type.Filled;
+        ovhImg.fillMethod = Image.FillMethod.Horizontal;
+        ovhImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+        ovhImg.color = new Color(1f, 0.85f, 0f, 0.85f);
+        ovhObj.SetActive(false);
+
+        var iconGo = new GameObject("StatusIcon");
+        iconGo.transform.SetParent(barObj.transform, false);
+        var iconRect = iconGo.AddComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(1f, 0.5f);
+        iconRect.anchorMax = new Vector2(1f, 0.5f);
+        iconRect.pivot = new Vector2(0f, 0.5f);
+        iconRect.anchoredPosition = new Vector2(6f, 0f);
+        iconRect.sizeDelta = new Vector2(90f, 18f);
+        var iconTmp = iconGo.AddComponent<TextMeshProUGUI>();
+        iconTmp.fontSize = 11f;
+        iconTmp.color = new Color(1f, 0.9f, 0.1f);
+        iconTmp.alignment = TextAlignmentOptions.Left;
+        if (appFont != null) iconTmp.font = appFont;
+        iconGo.SetActive(false);
+
+        var ctrl = barObj.AddComponent<HPBarController>();
+        ctrl.normalBar = fillImg;
+        ctrl.overhealBar = ovhImg;
+        ctrl.statusIcon = iconTmp;
+        if (!isEnemy)
+        {
+            ctrl.normalColor = new Color(0.2f, 0.8f, 0.2f);
+            ctrl.overhealColor = new Color(1f, 0.85f, 0f);
+        }
+        return ctrl;
     }
 
     /// <summary>
@@ -292,12 +375,27 @@ public class BattleUI : MonoBehaviour
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
         if (playerManaText != null) playerManaText.text = $"マナ: {gm.playerMana}/{gm.playerMaxMana}";
 
+        if (playerHPBar != null)
+        {
+            playerHPBar.SetHP(gm.playerHP, gm.playerMaxHP);
+            string buffText = "";
+            if (gm.playerAttackBuff > 0) buffText += $"攻↑+{gm.playerAttackBuff} ";
+            if (gm.playerDefenseBuff > 0) buffText += $"防↑+{gm.playerDefenseBuff}";
+            playerHPBar.SetStatusIcon(buffText.Trim());
+        }
+
         if (gm.battleManager != null && gm.battleManager.currentEnemyData != null)
         {
             var enemy = gm.battleManager.currentEnemyData;
             if (enemyNameText != null) enemyNameText.text = enemy.enemyName;
             if (enemyHPText != null) enemyHPText.text = $"HP: {gm.battleManager.enemyCurrentHP}/{enemy.maxHP}";
             if (enemyKanjiText != null) enemyKanjiText.text = enemy.displayKanji;
+
+            if (enemyHPBar != null)
+            {
+                enemyHPBar.SetHP(gm.battleManager.enemyCurrentHP, enemy.maxHP);
+                enemyHPBar.SetStatusIcon(gm.battleManager.enemyIsStunned ? "[スタン]" : "");
+            }
         }
     }
 }

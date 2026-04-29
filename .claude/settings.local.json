@@ -7,7 +7,20 @@
       "Skill(update-config)",
       "mcp__ide__getDiagnostics",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(claude mcp *)",
+      "Bash(where claude *)",
+      "Read(//c/Users/yanao/AppData/Local/**)",
+      "Bash(/c/Users/yanao/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe mcp *)",
+      "Bash(\"/c/Users/yanao/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe\" mcp *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2, ensure_ascii=False\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "mcp__UnityMCP__read_console",
+      "mcp__UnityMCP__manage_script",
+      "mcp__UnityMCP__refresh_unity",
+      "mcp__UnityMCP__manage_editor",
+      "mcp__UnityMCP__execute_code",
+      "mcp__UnityMCP__manage_camera"
     ]
   }
 }
