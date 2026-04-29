@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// ゲーム全体の状態管理（シングルトン）
@@ -116,6 +117,14 @@ public class GameManager : MonoBehaviour
         playerDefenseBuff = 0;
         playerGold = startGold;
 
+        // DeckManagerが未設定なら動的生成
+        if (deckManager == null)
+        {
+            var dmGo = new GameObject("DeckManager");
+            deckManager = dmGo.AddComponent<DeckManager>();
+            Debug.Log("[GameManager] DeckManagerを動的生成しました");
+        }
+
         Debug.Log($"[GameManager] ゲーム初期化完了 HP:{playerHP} マナ:{playerMana} インベントリ:{inventory.Count}枚");
 
         // 合成レシピDictionaryを初期化
@@ -147,7 +156,33 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        InitializeDeckEditPanel();
         ChangeState(GameState.Field);
+    }
+
+    /// <summary>
+    /// デッキ編成パネルが未設定なら動的生成
+    /// </summary>
+    private void InitializeDeckEditPanel()
+    {
+        if (deckEditPanel != null) return;
+
+        var canvas = FindObjectOfType<Canvas>();
+        if (canvas == null) return;
+
+        var go = new GameObject("DeckEditPanel");
+        go.transform.SetParent(canvas.transform, false);
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        go.AddComponent<Image>().color = new Color(0.04f, 0.04f, 0.08f, 0.97f);
+        go.AddComponent<DeckManagementUI>();
+
+        deckEditPanel = go;
+        go.SetActive(false);
+        Debug.Log("[GameManager] DeckEditPanelを動的生成しました");
     }
 
     /// <summary>

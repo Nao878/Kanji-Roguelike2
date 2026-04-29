@@ -24,6 +24,7 @@ public class BattleUI : MonoBehaviour
     [Header("操作ボタン")]
     public Button endTurnButton;
     public Button fusionButton;
+    public Button drawCardButton;
 
     [Header("バトルログ")]
     public TextMeshProUGUI battleLogText;
@@ -49,6 +50,11 @@ public class BattleUI : MonoBehaviour
             fusionButton.onClick.AddListener(OnFusionClicked);
         }
 
+        if (drawCardButton == null)
+            drawCardButton = CreateDrawButton();
+        if (drawCardButton != null)
+            drawCardButton.onClick.AddListener(OnDrawCardClicked);
+
         if (playerHPBar == null && playerHPText != null)
             playerHPBar = CreateHPBar(playerHPText.transform, false);
         if (enemyHPBar == null && enemyHPText != null)
@@ -73,7 +79,7 @@ public class BattleUI : MonoBehaviour
         barRect.sizeDelta = new Vector2(0f, 14f);
 
         var bgImg = barObj.AddComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.08f, 0.08f, 0.85f);
+        bgImg.color = new Color(0.25f, 0.25f, 0.25f, 0.9f);
 
         // 遅延バー（格ゲー風：ダメージ後に遅れて減る）
         var delayObj = new GameObject("DelayFill");
@@ -310,6 +316,73 @@ public class BattleUI : MonoBehaviour
     }
 
     /// <summary>
+    /// ドローボタンを動的生成
+    /// </summary>
+    private Button CreateDrawButton()
+    {
+        Transform parent = endTurnButton?.transform.parent ?? transform;
+
+        var go = new GameObject("DrawCardButton");
+        go.transform.SetParent(parent, false);
+        var rect = go.AddComponent<RectTransform>();
+
+        if (endTurnButton != null)
+        {
+            var src = endTurnButton.GetComponent<RectTransform>();
+            rect.anchorMin = src.anchorMin;
+            rect.anchorMax = src.anchorMax;
+            rect.sizeDelta = src.sizeDelta;
+            rect.anchoredPosition = src.anchoredPosition + new Vector2(-130f, 0f);
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(120f, 40f);
+            rect.anchoredPosition = new Vector2(-65f, 60f);
+        }
+
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.15f, 0.4f, 0.7f, 0.9f);
+
+        var btn = go.AddComponent<Button>();
+        var colors = btn.colors;
+        colors.disabledColor = new Color(0.25f, 0.25f, 0.25f, 0.5f);
+        btn.colors = colors;
+
+        var textGo = new GameObject("Label");
+        textGo.transform.SetParent(go.transform, false);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.text = "ドロー\n(AP:1)";
+        tmp.fontSize = 13f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.raycastTarget = false;
+        if (appFont != null) tmp.font = appFont;
+        var tmpRect = textGo.GetComponent<RectTransform>();
+        tmpRect.anchorMin = Vector2.zero;
+        tmpRect.anchorMax = Vector2.one;
+        tmpRect.offsetMin = Vector2.zero;
+        tmpRect.offsetMax = Vector2.zero;
+
+        return btn;
+    }
+
+    /// <summary>
+    /// ドローボタン押下：AP1消費してカードを1枚引く
+    /// </summary>
+    private void OnDrawCardClicked()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.playerMana < 1 || gm.hand.Count >= gm.initialHandSize) return;
+
+        gm.playerMana -= 1;
+        gm.DrawFromDeck(1);
+        UpdateHandUI();
+        UpdateStatusUI();
+    }
+
+    /// <summary>
     /// 合体ボタン
     /// </summary>
     private void OnFusionClicked()
@@ -397,6 +470,9 @@ public class BattleUI : MonoBehaviour
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
         if (playerManaText != null) playerManaText.text = $"マナ: {gm.playerMana}/{gm.playerMaxMana}";
+
+        if (drawCardButton != null)
+            drawCardButton.interactable = gm.playerMana >= 1 && gm.hand.Count < gm.initialHandSize;
 
         if (playerHPBar != null)
         {
