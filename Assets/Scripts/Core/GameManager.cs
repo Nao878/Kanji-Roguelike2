@@ -12,7 +12,7 @@ public class GameManager : MonoBehaviour
 
     [Header("ゲーム設定")]
     public int playerMaxHP = 50;
-    public int playerStartMana = 3;
+    public int playerStartMana = 1;
     public int initialHandSize = 5;
     public int startGold = 50;
     public int fusionCost = 20;
@@ -112,7 +112,7 @@ public class GameManager : MonoBehaviour
     {
         playerHP = playerMaxHP;
         playerMaxMana = playerStartMana;
-        playerMana = playerMaxMana;
+        playerMana = 0; // 戦闘開始時のStartPlayerTurnで加算されるため初期値は0
         playerAttackBuff = 0;
         playerDefenseBuff = 0;
         playerGold = startGold;

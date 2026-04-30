@@ -11,7 +11,6 @@ public class BattleManager : MonoBehaviour
     public EnemyData currentEnemyData;
     public int enemyCurrentHP;
     public bool isPlayerTurn = true;
-    public bool isAutoEndingTurn = false; 
     public bool enemyIsStunned = false; // スタンフラグ
     public BattleState battleState = BattleState.Idle;
 
@@ -28,7 +27,6 @@ public class BattleManager : MonoBehaviour
     private string lastPlayedKanji = "";
     private CardElement lastPlayedElement = CardElement.None;
     private int elementChainCount = 0;
-    private float turnStartTime;
 
     // 同字連撃コンボ
     public int currentComboCount = 0;
@@ -69,7 +67,6 @@ public class BattleManager : MonoBehaviour
     {
         battleState = BattleState.Idle;
         isPlayerTurn = true;
-        isAutoEndingTurn = false;
         enemyIsStunned = false;
         currentEnemyData = null;
         enemyCurrentHP = 0;
@@ -91,7 +88,6 @@ public class BattleManager : MonoBehaviour
         currentEnemyData = null;
         enemyCurrentHP = 0;
         isPlayerTurn = true;
-        isAutoEndingTurn = false;
         enemyIsStunned = false;
         battleState = BattleState.Idle;
         lastPlayedKanji = "";
@@ -143,7 +139,6 @@ public class BattleManager : MonoBehaviour
             GameManager.Instance.StartPlayerTurn();
         }
 
-        turnStartTime = Time.time; // ターン開始時刻を記録
         UpdateUI();
 
         // BattleUIの手札を更新
@@ -442,14 +437,12 @@ public class BattleManager : MonoBehaviour
         {
             // 戦闘継続 → プレイヤーターンへ
             battleState = BattleState.PlayerTurn;
-            isAutoEndingTurn = false;
             isPlayerTurn = true;
 
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.StartPlayerTurn();
             }
-            turnStartTime = Time.time; // プレイヤーターン開始時刻を記録
         }
 
         UpdateUI();
@@ -469,14 +462,12 @@ public class BattleManager : MonoBehaviour
         lastComboKanji = "";
 
         battleState = BattleState.PlayerTurn;
-        isAutoEndingTurn = false;
         isPlayerTurn = true;
         if (GameManager.Instance != null)
         {
             GameManager.Instance.StartPlayerTurn();
         }
-        
-        turnStartTime = Time.time; // ターン開始時刻を記録
+
         UpdateUI();
     }
 
@@ -631,83 +622,6 @@ public class BattleManager : MonoBehaviour
         return false;
     }
 
-    /// <summary>
-    /// オートターンエンドのチェック
-    /// </summary>
-    public void CheckAutoTurnEnd()
-    {
-        if (battleState != BattleState.PlayerTurn || isAutoEndingTurn) return;
-
-        // セーフティ：ターン開始から一定時間は判定を行わない
-        if (Time.time - turnStartTime < 1.0f) return;
-
-        var gm = GameManager.Instance;
-        
-        // フェイルセーフ：山札・捨て札・手札がすべて空の場合
-        if (gm.hand.Count == 0 && gm.drawPile.Count == 0 && gm.discardPile.Count == 0)
-        {
-            Debug.LogError("[BattleManager] 致命的なエラー：デッキが完全に空です。無限ループを防止するため強制終了します。");
-            AddBattleLog("<color=red>エラー：カードが1枚もありません。戦闘を継続できません。</color>");
-            isAutoEndingTurn = true;
-            CheckBattleEnd(); // 敗北判定等に流れる可能性を考慮
-            return;
-        }
-
-        bool anyActionPossible = false;
-        
-        // 1. 通常のカード使用チェック
-        foreach (var card in gm.hand)
-        {
-            if (card.cost <= gm.playerMana)
-            {
-                anyActionPossible = true;
-                break;
-            }
-        }
-
-        // 2. 敵との合体チェック
-        if (!anyActionPossible)
-        {
-            var enemyCardData = gm.GetCardByKanji(currentEnemyData.displayKanji);
-            if (enemyCardData != null)
-            {
-                foreach (var card in gm.hand)
-                {
-                    if (gm.FindFusionResult(enemyCardData.cardId, card.cardId) != -1)
-                    {
-                        anyActionPossible = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 3. 手札同士の合体チェック
-        if (!anyActionPossible)
-        {
-            for (int i = 0; i < gm.hand.Count; i++)
-            {
-                for (int j = i + 1; j < gm.hand.Count; j++)
-                {
-                    if (gm.FindFusionResult(gm.hand[i].cardId, gm.hand[j].cardId) != -1)
-                    {
-                        anyActionPossible = true;
-                        break;
-                    }
-                }
-                if (anyActionPossible) break;
-            }
-        }
-
-        if (!anyActionPossible)
-        {
-            isAutoEndingTurn = true;
-            AddBattleLog("<color=#AAAAAA>行動不能のため、自動的にターンを終了します...</color>");
-            Invoke(nameof(EndPlayerTurn), 1.5f);
-        }
-    }
-
-
     public void UpdateUI()
     {
         var gm = GameManager.Instance;
@@ -715,9 +629,6 @@ public class BattleManager : MonoBehaviour
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
         if (playerManaText != null) playerManaText.text = $"マナ: {gm.playerMana}/{gm.playerMaxMana}";
-
-        // オートターンエンドのチェック
-        CheckAutoTurnEnd();
 
         if (currentEnemyData != null)
         {

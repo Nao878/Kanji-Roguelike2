@@ -11315,7 +11315,6 @@ MonoBehaviour:
   currentEnemyData: {fileID: 0}
   enemyCurrentHP: 0
   isPlayerTurn: 1
-  isAutoEndingTurn: 0
   enemyIsStunned: 0
   battleState: 0
   playerHPText: {fileID: 1845184291}
@@ -11325,6 +11324,7 @@ MonoBehaviour:
   battleLogText: {fileID: 1855859282}
   endTurnButton: {fileID: 718543543}
   handArea: {fileID: 1149242233}
+  currentComboCount: 0
   normalEnemies:
   - {fileID: 11400000, guid: a8a080ada9689284f84ec1db92289afa, type: 2}
   - {fileID: 11400000, guid: 86d63b5dc6a8f2f459d8c96485449c89, type: 2}
@@ -12065,6 +12065,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c997f22c84ca4bc4a82b52f2ef15b2d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoPlayTest
+  runOnStart: 0
 --- !u!114 &1843956342
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12090,7 +12091,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   playerMaxHP: 50
-  playerStartMana: 3
+  playerStartMana: 1
   initialHandSize: 5
   startGold: 50
   fusionCost: 20
@@ -14116,8 +14117,11 @@ MonoBehaviour:
   handArea: {fileID: 1149242233}
   endTurnButton: {fileID: 718543543}
   fusionButton: {fileID: 0}
+  drawCardButton: {fileID: 0}
   battleLogText: {fileID: 1855859282}
   appFont: {fileID: 11400000, guid: 661c53db448f38b498f60a71b016ff03, type: 2}
+  playerHPBar: {fileID: 0}
+  enemyHPBar: {fileID: 0}
 --- !u!114 &2141523598
 MonoBehaviour:
   m_ObjectHideFlags: 0
