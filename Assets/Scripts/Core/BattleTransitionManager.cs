@@ -13,6 +13,8 @@ public class BattleTransitionManager : MonoBehaviour
 {
     public static BattleTransitionManager Instance { get; private set; }
 
+    private const float refWidth = 960f; // CanvasScalerの参照解像度に合わせる
+
     [Header("フォント（日本語対応必須）")]
     public TMP_FontAsset appFont;
 
@@ -56,7 +58,7 @@ public class BattleTransitionManager : MonoBehaviour
 
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.referenceResolution = new Vector2(960f, 540f); // MainCanvasと合わせる
         scaler.matchWidthOrHeight = 0.5f;
 
         var raycaster = canvasGo.AddComponent<GraphicRaycaster>();
@@ -74,24 +76,24 @@ public class BattleTransitionManager : MonoBehaviour
         lineRect.sizeDelta = new Vector2(0f, 8f);
         _whiteLine = lineGo.GetComponent<Image>();
 
-        // ② 上半分の黒パネル（画面左外から登場）
+        // ② 上半分の黒パネル（画面外から登場。少し重複させて隙間を防ぐ）
         var topGo = CreateImageGO(canvasRect, "TopPanel", Color.black);
         var topRect = topGo.GetComponent<RectTransform>();
-        topRect.anchorMin = new Vector2(0f, 0.5f);
+        topRect.anchorMin = new Vector2(0f, 0.48f); // 少し中央に重複
         topRect.anchorMax = new Vector2(1f, 1f);
         topRect.offsetMin = Vector2.zero;
         topRect.offsetMax = Vector2.zero;
-        topGo.transform.localPosition = new Vector3(-2000f, 0f, 0f);
+        topRect.anchoredPosition = new Vector2(-refWidth, 0f); // 画面外（左）
         _topPanel = topGo.GetComponent<Image>();
 
-        // ② 下半分の黒パネル（画面右外から登場）
+        // ② 下半分の黒パネル（画面外から登場。少し重複させて隙間を防ぐ）
         var botGo = CreateImageGO(canvasRect, "BottomPanel", Color.black);
         var botRect = botGo.GetComponent<RectTransform>();
         botRect.anchorMin = new Vector2(0f, 0f);
-        botRect.anchorMax = new Vector2(1f, 0.5f);
+        botRect.anchorMax = new Vector2(1f, 0.52f); // 少し中央に重複
         botRect.offsetMin = Vector2.zero;
         botRect.offsetMax = Vector2.zero;
-        botGo.transform.localPosition = new Vector3(2000f, 0f, 0f);
+        botRect.anchoredPosition = new Vector2(refWidth, 0f); // 画面外（右）
         _bottomPanel = botGo.GetComponent<Image>();
 
         // ③「開」テキスト（画面右上）
@@ -165,7 +167,7 @@ public class BattleTransitionManager : MonoBehaviour
         // BGMをトランジション頭から再生（3秒後に盛り上がる部分に同期）
         if (AudioManager.Instance != null) AudioManager.Instance.PlayBattleBGMImmediate();
 
-        const float refWidth = 1920f;
+        // refWidth はクラス定数として定義済み
 
         // ===== フェーズ① 白い横線が伸びる（0 ~ 0.3秒）=====
         _whiteLine.gameObject.SetActive(true);
@@ -192,12 +194,14 @@ public class BattleTransitionManager : MonoBehaviour
             t += Time.deltaTime;
             float p = Mathf.Clamp01(t / 1.0f);
             float ease = 1f - (1f - p) * (1f - p) * (1f - p); // EaseOutCubic（最初速く、後でゆっくり）
-            _topPanel.transform.localPosition = new Vector3(Mathf.Lerp(-refWidth, 0f, ease), 0f, 0f);
-            _bottomPanel.transform.localPosition = new Vector3(Mathf.Lerp(refWidth, 0f, ease), 0f, 0f);
+            var topRt = _topPanel.GetComponent<RectTransform>();
+            var botRt = _bottomPanel.GetComponent<RectTransform>();
+            topRt.anchoredPosition = new Vector2(Mathf.Lerp(-refWidth, 0f, ease), 0f);
+            botRt.anchoredPosition = new Vector2(Mathf.Lerp(refWidth, 0f, ease), 0f);
             yield return null;
         }
-        _topPanel.transform.localPosition = Vector3.zero;
-        _bottomPanel.transform.localPosition = Vector3.zero;
+        _topPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+        _bottomPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
         _whiteLine.gameObject.SetActive(false);
 
         // ===== フェーズ③「開」「戦」テキストポップアップ（1.3 ~ 1.8秒）=====
@@ -249,8 +253,8 @@ public class BattleTransitionManager : MonoBehaviour
         _senText.gameObject.SetActive(false);
         _topPanel.color = Color.black;
         _bottomPanel.color = Color.black;
-        _topPanel.transform.localPosition = new Vector3(-2000f, 0f, 0f);
-        _bottomPanel.transform.localPosition = new Vector3(2000f, 0f, 0f);
+        _topPanel.GetComponent<RectTransform>().anchoredPosition = new Vector2(-refWidth, 0f);
+        _bottomPanel.GetComponent<RectTransform>().anchoredPosition = new Vector2(refWidth, 0f);
 
         _isPlaying = false;
         onComplete?.Invoke();

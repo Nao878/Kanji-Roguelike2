@@ -66,8 +66,20 @@ public class VFXManager : MonoBehaviour
             var parentCanvas = canvasParent.GetComponentInParent<Canvas>();
             if (parentCanvas != null) return parentCanvas.transform;
         }
-        var canvas = FindFirstObjectByType<Canvas>();
-        return canvas != null ? canvas.transform : null;
+        // MainCanvas（ScreenSpaceCamera）を優先的に検索
+        // BattleTransitionCanvas（ScreenSpaceOverlay）を避ける
+        Canvas[] allCanvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+        Canvas bestCanvas = null;
+        foreach (var c in allCanvases)
+        {
+            if (!c.isRootCanvas) continue;
+            // ScreenSpaceCameraのCanvasを優先
+            if (c.renderMode == RenderMode.ScreenSpaceCamera)
+                return c.transform;
+            if (bestCanvas == null)
+                bestCanvas = c;
+        }
+        return bestCanvas != null ? bestCanvas.transform : null;
     }
 
     private void SetLocalPositionFromWorld(RectTransform rect, Vector3 worldPosition, Transform canvasParent)

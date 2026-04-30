@@ -188,9 +188,21 @@ public class BattleManager : MonoBehaviour
             bpmRipple.enemyTransform = battleUI.enemyKanjiText.transform;
         }
 
-        // Canvas参照
-        var canvas = FindObjectOfType<Canvas>();
-        if (canvas != null) bpmRipple.targetCanvas = canvas;
+        // Canvas参照（ScreenSpaceCamera の MainCanvas を優先）
+        Canvas[] allCanvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+        foreach (var c in allCanvases)
+        {
+            if (c.isRootCanvas && c.renderMode == RenderMode.ScreenSpaceCamera)
+            {
+                bpmRipple.targetCanvas = c;
+                break;
+            }
+        }
+        if (bpmRipple.targetCanvas == null)
+        {
+            var canvas = FindObjectOfType<Canvas>();
+            if (canvas != null) bpmRipple.targetCanvas = canvas;
+        }
 
         bpmRipple.SetActive(true);
         Debug.Log("[BattleManager] BPM波紋エフェクト起動");

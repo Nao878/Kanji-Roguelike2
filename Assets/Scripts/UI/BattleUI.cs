@@ -381,11 +381,15 @@ public class BattleUI : MonoBehaviour
         if (endTurnButton != null)
         {
             var src = endTurnButton.GetComponent<RectTransform>();
-            rect.anchorMin = src.anchorMin;
-            rect.anchorMax = src.anchorMax;
-            rect.sizeDelta = src.sizeDelta;
-            // ターン終了ボタンの真上に配置（ボタン高さ + マージン10px）
-            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, src.sizeDelta.y + 10f);
+            // EndTurnButtonと同じアンカー範囲でY方向にシフト
+            float anchorHeight = src.anchorMax.y - src.anchorMin.y;
+            float margin = 0.02f; // アンカー比率でのマージン
+            rect.anchorMin = new Vector2(src.anchorMin.x, src.anchorMax.y + margin);
+            rect.anchorMax = new Vector2(src.anchorMax.x, src.anchorMax.y + margin + anchorHeight);
+            rect.sizeDelta = src.sizeDelta; // ストレッチなので(0,0)
+            rect.anchoredPosition = Vector2.zero;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
         else
         {

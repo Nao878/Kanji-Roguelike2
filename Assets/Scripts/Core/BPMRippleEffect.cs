@@ -81,13 +81,29 @@ public class BPMRippleEffect : MonoBehaviour
         var rect = go.AddComponent<RectTransform>();
         rect.sizeDelta = new Vector2(initialSize, initialSize);
 
-        // 敵の位置をCanvas座標へ変換
-        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(
-            targetCanvas.worldCamera, enemyTransform.position);
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            targetCanvas.transform as RectTransform, screenPoint,
-            targetCanvas.worldCamera, out Vector2 localPoint);
-        rect.anchoredPosition = localPoint + new Vector2(0f, -30f); // 足元
+        // 敵の位置をCanvas座標へ変換（UI要素 = RectTransform の場合は直接ローカル座標を取得）
+        RectTransform enemyRect = enemyTransform as RectTransform;
+        if (enemyRect == null) enemyRect = enemyTransform.GetComponent<RectTransform>();
+        if (enemyRect != null)
+        {
+            // UI要素同士なので、Canvas内のローカル座標を直接計算
+            Vector3 worldPos = enemyTransform.position;
+            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(targetCanvas.worldCamera, worldPos);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                targetCanvas.transform as RectTransform, screenPoint,
+                targetCanvas.worldCamera, out Vector2 localPoint);
+            rect.anchoredPosition = localPoint + new Vector2(0f, -30f); // 足元
+        }
+        else
+        {
+            // ワールドオブジェクトの場合
+            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(
+                targetCanvas.worldCamera ?? Camera.main, enemyTransform.position);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                targetCanvas.transform as RectTransform, screenPoint,
+                targetCanvas.worldCamera, out Vector2 localPoint);
+            rect.anchoredPosition = localPoint + new Vector2(0f, -30f);
+        }
 
         var img = go.AddComponent<Image>();
         img.color = color;
