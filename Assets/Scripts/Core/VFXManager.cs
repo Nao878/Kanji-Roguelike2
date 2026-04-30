@@ -668,6 +668,61 @@ public class VFXManager : MonoBehaviour
     }
 
     // ===========================================
+    // AP不足フィードバック（赤く光って揺れる）
+    // ===========================================
+
+    /// <summary>
+    /// AP不足時にAP表示を赤く光らせて揺らす
+    /// </summary>
+    public void PlayAPShortageEffect(RectTransform apTextRect)
+    {
+        if (apTextRect == null) return;
+        StartCoroutine(CoAPShortage(apTextRect));
+    }
+
+    private IEnumerator CoAPShortage(RectTransform rect)
+    {
+        if (rect == null) yield break;
+        var graphic = rect.GetComponent<Graphic>();
+        Color originalColor = graphic != null ? graphic.color : Color.white;
+
+        // 瞬時に赤く変える
+        if (graphic != null) graphic.color = new Color(1f, 0.1f, 0.1f, 1f);
+
+        // シェイク（減衰）
+        Vector2 originalPos = rect.anchoredPosition;
+        float elapsed = 0f;
+        float dur = 0.45f;
+        float mag = 14f;
+        while (elapsed < dur)
+        {
+            if (rect == null) yield break;
+            float t = elapsed / dur;
+            Vector2 offset = Random.insideUnitCircle * mag * (1f - t);
+            rect.anchoredPosition = originalPos + offset;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        if (rect != null) rect.anchoredPosition = originalPos;
+
+        // 赤→元の色にフェード
+        if (graphic != null)
+        {
+            float fadeTime = 0.35f;
+            elapsed = 0f;
+            Color red = new Color(1f, 0.1f, 0.1f, 1f);
+            while (elapsed < fadeTime)
+            {
+                if (graphic == null) yield break;
+                graphic.color = Color.Lerp(red, originalColor, elapsed / fadeTime);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            if (graphic != null) graphic.color = originalColor;
+        }
+    }
+
+    // ===========================================
     // カメラシェイク強化
     // ===========================================
 

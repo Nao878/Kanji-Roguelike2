@@ -124,6 +124,9 @@ public class BattleManager : MonoBehaviour
         Debug.Log($"[BattleManager] 戦闘開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
         AddBattleLog($"『{enemy.displayKanji}』{enemy.enemyName}が現れた！");
 
+        // BGM再生
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayBattleBGM();
+
         // ★ 敵UIを確実にリセット（前回のデスVFXでSetActive(false)された状態を復元）
         if (battleUI != null)
         {
@@ -536,16 +539,18 @@ public class BattleManager : MonoBehaviour
 
     private void ReturnToField()
     {
+        // BGM停止 → フィールドBGMへ
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayFieldBGM();
+
         // フィールドマネージャーに勝利通知
         if (GameManager.Instance != null && GameManager.Instance.fieldManager != null)
         {
             GameManager.Instance.fieldManager.OnBattleWon();
         }
 
-        // 手札クリア（戦闘終了）
+        // 手札はクリアしない（持ち越しシステム）
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.hand.Clear();
             GameManager.Instance.ChangeState(GameState.Field);
         }
     }

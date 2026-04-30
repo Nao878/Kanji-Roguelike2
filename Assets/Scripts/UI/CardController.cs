@@ -49,6 +49,9 @@ public class CardController : MonoBehaviour,
     private static List<GameObject> activeFusionButtons = new List<GameObject>();
     private static CardController selectedCard = null;
 
+    // 攻撃ボタン管理（静的）
+    private static GameObject activeAttackButton = null;
+
     // コールバック
     public System.Action onCardUsed;
     public System.Action onHandChanged;
@@ -205,6 +208,10 @@ public class CardController : MonoBehaviour,
         if (gm.playerMana < actualCost)
         {
             Debug.Log($"[CardController] マナ不足！ 必要:{actualCost} 現在:{gm.playerMana}");
+            // AP不足フィードバック
+            var battleUI = gm.battleManager?.battleUI;
+            if (VFXManager.Instance != null && battleUI != null && battleUI.playerManaText != null)
+                VFXManager.Instance.PlayAPShortageEffect(battleUI.playerManaText.GetComponent<UnityEngine.RectTransform>());
             ReturnToHand();
             return false;
         }
@@ -453,7 +460,7 @@ public class CardController : MonoBehaviour,
     // ============================================
 
     /// <summary>
-    /// 左クリック: 合体可能なカードの上に「合体」ボタンを表示
+    /// 左クリック: 攻撃系カードなら攻撃予測ボタン表示、そうでなければ合体ボタン表示
     /// 右クリック: 分解
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
@@ -463,7 +470,25 @@ public class CardController : MonoBehaviour,
 
         if (eventData.button == PointerEventData.InputButton.Left)
         {
-            HandleTapForFusion();
+            bool isAttackCard = cardData != null &&
+                (cardData.effectType == CardEffectType.Attack ||
+                 cardData.effectType == CardEffectType.AttackAll ||
+                 cardData.effectType == CardEffectType.Special);
+
+            var gm = GameManager.Instance;
+            bool inBattle = gm != null && gm.currentState == GameState.Battle &&
+                            gm.battleManager != null &&
+                            gm.battleManager.battleState == BattleManager.BattleState.PlayerTurn;
+
+            if (isAttackCard && inBattle)
+            {
+                // 攻撃系カード → 攻撃予測ボタンを表示
+                HandleTapForAttack();
+            }
+            else
+            {
+                HandleTapForFusion();
+            }
         }
         else if (eventData.button == PointerEventData.InputButton.Right)
         {
@@ -489,6 +514,185 @@ public class CardController : MonoBehaviour,
                     Debug.Log($"[CardController] 『{cardData.kanji}』は基礎カードのため分解できません");
                 }
             }
+        }
+    }
+
+    // ============================================
+    // 攻撃予測ボタン
+    // ============================================
+
+    /// <summary>
+    /// 攻撃系カードのタップ: 敵エリアの上に「攻撃ボタン + 予測ダメージ」を表示
+    /// </summary>
+    private void HandleTapForAttack()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || cardData == null) return;
+
+        // 既に自分が選択されていたら解除
+        if (selectedCard == this)
+        {
+            ClearAllFusionButtons();
+            ClearAttackButton();
+            return;
+        }
+
+        ClearAllFusionButtons();
+        ClearAttackButton();
+        selectedCard = this;
+
+        // 選択ハイライト
+        isSelected = true;
+        if (cardBackground != null)
+            cardBackground.color = new Color(1f, 0.3f, 0.3f, 1f); // 赤ハイライト（攻撃系）
+
+        selectionOutline = gameObject.GetComponent<Outline>();
+        if (selectionOutline == null) selectionOutline = gameObject.AddComponent<Outline>();
+        selectionOutline.effectColor = new Color(1f, 0.3f, 0.3f, 0.9f);
+        selectionOutline.effectDistance = new Vector2(3f, 3f);
+        selectionOutline.enabled = true;
+
+        var pos = rectTransform.anchoredPosition;
+        pos.y += SELECTION_LIFT;
+        rectTransform.anchoredPosition = pos;
+
+        // 敵エリアを検索してボタン生成
+        var battleUI = gm.battleManager?.battleUI;
+        if (battleUI == null || battleUI.enemyArea == null) return;
+
+        // 予測ダメージ計算
+        int predictedDamage = CalculatePredictedDamage(gm, cardData);
+        string statusText = GetStatusText(cardData);
+
+        CreateAttackButtonOnEnemy(battleUI.enemyArea.transform, predictedDamage, statusText);
+    }
+
+    private int CalculatePredictedDamage(GameManager gm, KanjiCardData card)
+    {
+        int dmg = card.effectValue + card.attackModifier;
+        if (card.effectType == CardEffectType.Attack || card.effectType == CardEffectType.AttackAll)
+            dmg += gm.playerAttackBuff;
+
+        // Mirror Clash チェック
+        var bm = gm.battleManager;
+        if (bm != null && bm.currentEnemyData != null)
+        {
+            if (card.kanji == bm.currentEnemyData.displayKanji)
+                dmg *= 3;
+            else if (card.componentCount > bm.currentEnemyData.componentCount)
+                dmg = UnityEngine.Mathf.CeilToInt(dmg * 1.5f);
+        }
+        return UnityEngine.Mathf.Max(0, dmg);
+    }
+
+    private string GetStatusText(KanjiCardData card)
+    {
+        switch (card.effectType)
+        {
+            case CardEffectType.Stun: return "スタン付与";
+            case CardEffectType.Special: return $"吸血 +{UnityEngine.Mathf.CeilToInt(card.effectValue * 0.6f)}HP";
+            default: return "";
+        }
+    }
+
+    private void CreateAttackButtonOnEnemy(Transform enemyTransform, int predictedDamage, string statusText)
+    {
+        Canvas canvas = enemyTransform.GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+        if (canvas == null) return;
+
+        GameObject btnObj = new GameObject("AttackPredictButton");
+        btnObj.transform.SetParent(canvas.transform, false);
+        btnObj.transform.SetAsLastSibling();
+
+        var btnRect = btnObj.AddComponent<RectTransform>();
+        btnRect.sizeDelta = new Vector2(140f, 70f);
+
+        // 敵のCanvas座標に配置
+        Vector3 worldPos = enemyTransform.position;
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, worldPos);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            canvas.transform as RectTransform, screenPoint, canvas.worldCamera, out Vector2 localPoint);
+        btnRect.anchoredPosition = localPoint + new Vector2(0, 20f);
+
+        // 背景：目立つ黄色
+        var btnImg = btnObj.AddComponent<Image>();
+        btnImg.color = new Color(1f, 0.85f, 0.05f, 0.97f);
+
+        // Outline（黒の太い縁取り）
+        var btnOutline = btnObj.AddComponent<Outline>();
+        btnOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        btnOutline.effectDistance = new Vector2(4f, -4f);
+
+        var btn = btnObj.AddComponent<Button>();
+        var colors = btn.colors;
+        colors.normalColor = btnImg.color;
+        colors.highlightedColor = new Color(1f, 1f, 0.3f, 1f);
+        colors.pressedColor = new Color(0.8f, 0.6f, 0f, 1f);
+        btn.colors = colors;
+
+        // 剣アイコン + ダメージ表示テキスト
+        var textGo = new GameObject("AttackText");
+        textGo.transform.SetParent(btnObj.transform, false);
+        var textRect = textGo.AddComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(4f, 2f);
+        textRect.offsetMax = new Vector2(-4f, -2f);
+
+        var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
+        string dmgStr = predictedDamage > 0 ? $"⚔ {predictedDamage} DMG" : "⚔ 攻撃";
+        if (!string.IsNullOrEmpty(statusText)) dmgStr += $"\n{statusText}";
+        tmp.text = dmgStr;
+        tmp.fontSize = predictedDamage > 0 ? 16f : 18f;
+        tmp.color = new Color(0.1f, 0.05f, 0f); // 濃い茶色（黄背景に映える）
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        tmp.outlineWidth = 0.2f;
+        tmp.outlineColor = new Color(1f, 1f, 1f, 0.5f);
+        if (appFont != null) tmp.font = appFont;
+
+        // クリック時: カードを使用して敵を攻撃
+        CardController selfRef = this;
+        btn.onClick.AddListener(() =>
+        {
+            ClearAttackButton();
+            ClearAllFusionButtons();
+
+            var gmInner = GameManager.Instance;
+            if (gmInner == null || selfRef == null || selfRef.cardData == null) return;
+
+            int cost = selfRef.cardData.isFusionResult ? 1 : selfRef.cardData.cost;
+            if (gmInner.playerMana < cost)
+            {
+                var buiInner = gmInner.battleManager?.battleUI;
+                if (VFXManager.Instance != null && buiInner?.playerManaText != null)
+                    VFXManager.Instance.PlayAPShortageEffect(buiInner.playerManaText.GetComponent<UnityEngine.RectTransform>());
+                return;
+            }
+
+            gmInner.battleManager.PlayCard(selfRef.cardData);
+            selfRef.onCardUsed?.Invoke();
+            selfRef.onHandChanged?.Invoke();
+            UnityEngine.Object.Destroy(selfRef.gameObject);
+        });
+
+        // ボヨヨン出現
+        btnObj.transform.localScale = Vector3.zero;
+        if (VFXManager.Instance != null)
+            VFXManager.Instance.PlaySpawnEffect(btnObj);
+        else
+            btnObj.transform.localScale = Vector3.one;
+
+        activeAttackButton = btnObj;
+    }
+
+    public static void ClearAttackButton()
+    {
+        if (activeAttackButton != null)
+        {
+            UnityEngine.Object.Destroy(activeAttackButton);
+            activeAttackButton = null;
         }
     }
 
@@ -671,10 +875,12 @@ public class CardController : MonoBehaviour,
     }
 
     /// <summary>
-    /// 全ての合体ボタンをクリアし、選択状態を解除
+    /// 全ての合体ボタン・攻撃ボタンをクリアし、選択状態を解除
     /// </summary>
     public static void ClearAllFusionButtons()
     {
+        ClearAttackButton();
+
         foreach (var btn in activeFusionButtons)
         {
             if (btn != null) Object.Destroy(btn);

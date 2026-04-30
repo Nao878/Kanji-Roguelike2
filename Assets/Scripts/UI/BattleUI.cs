@@ -59,6 +59,26 @@ public class BattleUI : MonoBehaviour
             playerHPBar = CreateHPBar(playerHPText.transform, false);
         if (enemyHPBar == null && enemyHPText != null)
             enemyHPBar = CreateHPBar(enemyHPText.transform, true);
+
+        // テキスト要素にOutlineを追加して視認性向上
+        AddTextOutline(playerHPText, new Color(0f, 0.2f, 0f, 0.85f));
+        AddTextOutline(playerManaText, new Color(0f, 0f, 0.3f, 0.85f));
+        AddTextOutline(enemyNameText, new Color(0.3f, 0f, 0f, 0.85f));
+        AddTextOutline(enemyHPText, new Color(0.3f, 0f, 0f, 0.85f));
+        AddTextOutline(enemyKanjiText, new Color(0.4f, 0f, 0f, 0.9f), 2f);
+        AddTextOutline(battleLogText, new Color(0f, 0f, 0f, 0.8f));
+    }
+
+    /// <summary>
+    /// テキストにOutlineを追加（縁取りで視認性向上）
+    /// </summary>
+    private void AddTextOutline(Component text, Color outlineColor, float distance = 1.2f)
+    {
+        if (text == null) return;
+        if (text.GetComponent<Outline>() != null) return;
+        var outline = text.gameObject.AddComponent<Outline>();
+        outline.effectColor = outlineColor;
+        outline.effectDistance = new Vector2(distance, -distance);
     }
 
     /// <summary>
@@ -369,12 +389,20 @@ public class BattleUI : MonoBehaviour
     }
 
     /// <summary>
-    /// ドローボタン押下：AP1消費してカードを1枚引く
+    /// ドローボタン押下：AP1消費してカードを1枚引く（AP不足時はエフェクト）
     /// </summary>
     private void OnDrawCardClicked()
     {
         var gm = GameManager.Instance;
-        if (gm == null || gm.playerMana < 1 || gm.hand.Count >= gm.initialHandSize) return;
+        if (gm == null || gm.hand.Count >= gm.initialHandSize) return;
+
+        if (gm.playerMana < 1)
+        {
+            // AP不足フィードバック
+            if (VFXManager.Instance != null && playerManaText != null)
+                VFXManager.Instance.PlayAPShortageEffect(playerManaText.GetComponent<UnityEngine.RectTransform>());
+            return;
+        }
 
         gm.playerMana -= 1;
         gm.DrawFromDeck(1);

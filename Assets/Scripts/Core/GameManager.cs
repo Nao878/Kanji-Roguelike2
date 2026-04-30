@@ -386,10 +386,17 @@ public class GameManager : MonoBehaviour
     {
         drawPile.Clear();
         discardPile.Clear();
-        hand.Clear();
+        // hand はクリアしない（手札持ち越しシステム）
 
         var sourceCards = (deckManager != null) ? deckManager.currentDeck : inventory;
-        drawPile.AddRange(sourceCards);
+
+        // 手札に既にあるカードを除いてdrawPileを構築
+        var handSet = new System.Collections.Generic.HashSet<KanjiCardData>(hand);
+        foreach (var card in sourceCards)
+        {
+            if (!handSet.Contains(card))
+                drawPile.Add(card);
+        }
 
         // 初期シャッフル
         for (int i = drawPile.Count - 1; i > 0; i--)
@@ -399,7 +406,7 @@ public class GameManager : MonoBehaviour
             drawPile[i] = drawPile[j];
             drawPile[j] = temp;
         }
-        Debug.Log($"[GameManager] バトル用デッキ準備完了: {drawPile.Count}枚");
+        Debug.Log($"[GameManager] バトル用デッキ準備完了（手札持ち越し:{hand.Count}枚）: drawPile={drawPile.Count}枚");
     }
 
     public void InitializeFusionRecipes()
