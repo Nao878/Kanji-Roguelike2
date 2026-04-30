@@ -11342,6 +11342,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1781413369}
   - component: {fileID: 1781413368}
+  - component: {fileID: 1781413370}
   m_Layer: 0
   m_Name: BattleManager
   m_TagString: Untagged
@@ -11386,6 +11387,7 @@ MonoBehaviour:
   bossEnemy: {fileID: 11400000, guid: 5eb4e0d17c95ea14cb2a1ff491b19f2d, type: 2}
   battleUI: {fileID: 2141523597}
   gameOverPanel: {fileID: 455486181}
+  bpmRipple: {fileID: 0}
 --- !u!4 &1781413369
 Transform:
   m_ObjectHideFlags: 0
@@ -11401,6 +11403,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1781413370
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1781413367}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 630e930e9c80c7547801a6ad92f9d185, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleTransitionManager
+  appFont: {fileID: 11400000, guid: 661c53db448f38b498f60a71b016ff03, type: 2}
 --- !u!1 &1783221191
 GameObject:
   m_ObjectHideFlags: 0
@@ -12265,6 +12280,8 @@ MonoBehaviour:
   battleBGM: {fileID: 8300000, guid: fcd0f8bef472f164287bd83a4d8b06c9, type: 3}
   fieldBGM: {fileID: 0}
   bgmVolume: 0.7
+  seVolume: 1
+  appFont: {fileID: 0}
 --- !u!1 &1844609135
 GameObject:
   m_ObjectHideFlags: 0

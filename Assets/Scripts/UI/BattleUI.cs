@@ -43,6 +43,13 @@ public class BattleUI : MonoBehaviour
         if (endTurnButton != null)
         {
             endTurnButton.onClick.AddListener(OnEndTurnClicked);
+            // ターン終了ボタンをモノトーンに
+            var etImg = endTurnButton.GetComponent<Image>();
+            if (etImg != null) etImg.color = new Color(0.28f, 0.28f, 0.28f, 0.92f);
+            var etColors = endTurnButton.colors;
+            etColors.highlightedColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+            etColors.pressedColor     = new Color(0.18f, 0.18f, 0.18f, 1f);
+            endTurnButton.colors = etColors;
         }
 
         if (fusionButton != null)
@@ -215,8 +222,15 @@ public class BattleUI : MonoBehaviour
         // CanvasGroupを追加（ドラッグ時のレイキャスト制御用）
         var canvasGroup = go.AddComponent<CanvasGroup>();
 
-        // 背景
+        // カード背景（ダークグレー #222222）
         var bg = go.AddComponent<Image>();
+        bg.color = new Color(0.133f, 0.133f, 0.133f, 0.95f);
+
+        // 属性ボーダー：Outlineコンポーネントで枠取り
+        var elemOutline = go.AddComponent<Outline>();
+        elemOutline.effectColor = GetElementBorderColor(data != null ? data.element : CardElement.None);
+        elemOutline.effectDistance = new Vector2(4f, -4f);
+        elemOutline.useGraphicAlpha = false;
 
         // CardControllerコンポーネント
         var cardCtrl = go.AddComponent<CardController>();
@@ -315,6 +329,24 @@ public class BattleUI : MonoBehaviour
         return cardCtrl;
     }
 
+    /// <summary>
+    /// 属性に応じたボーダーカラーを返す
+    /// </summary>
+    private Color GetElementBorderColor(CardElement element)
+    {
+        switch (element)
+        {
+            case CardElement.Fire:  return new Color(1f, 0.35f, 0.1f, 0.9f);
+            case CardElement.Water: return new Color(0.15f, 0.55f, 1f, 0.9f);
+            case CardElement.Wood:  return new Color(0.15f, 0.75f, 0.25f, 0.9f);
+            case CardElement.Earth: return new Color(0.7f, 0.5f, 0.2f, 0.9f);
+            case CardElement.Metal: return new Color(0.75f, 0.75f, 0.8f, 0.9f);
+            case CardElement.Sun:   return new Color(1f, 0.85f, 0.1f, 0.9f);
+            case CardElement.Moon:  return new Color(0.6f, 0.6f, 1f, 0.9f);
+            default:                return new Color(0.25f, 0.25f, 0.25f, 0.7f);
+        }
+    }
+
     private System.Collections.IEnumerator DelayedUpdateHand()
     {
         yield return null; // 1フレーム待つ
@@ -336,7 +368,7 @@ public class BattleUI : MonoBehaviour
     }
 
     /// <summary>
-    /// ドローボタンを動的生成
+    /// ドローボタンを動的生成（ターン終了ボタンの真上に配置・モノトーン）
     /// </summary>
     private Button CreateDrawButton()
     {
@@ -352,22 +384,27 @@ public class BattleUI : MonoBehaviour
             rect.anchorMin = src.anchorMin;
             rect.anchorMax = src.anchorMax;
             rect.sizeDelta = src.sizeDelta;
-            rect.anchoredPosition = src.anchoredPosition + new Vector2(-130f, 0f);
+            // ターン終了ボタンの真上に配置（ボタン高さ + マージン10px）
+            rect.anchoredPosition = src.anchoredPosition + new Vector2(0f, src.sizeDelta.y + 10f);
         }
         else
         {
             rect.anchorMin = new Vector2(0.5f, 0f);
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.sizeDelta = new Vector2(120f, 40f);
-            rect.anchoredPosition = new Vector2(-65f, 60f);
+            rect.anchoredPosition = new Vector2(60f, 60f);
         }
 
+        // モノトーン（グレー）カラー
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.15f, 0.4f, 0.7f, 0.9f);
+        img.color = new Color(0.32f, 0.32f, 0.32f, 0.92f);
 
         var btn = go.AddComponent<Button>();
         var colors = btn.colors;
-        colors.disabledColor = new Color(0.25f, 0.25f, 0.25f, 0.5f);
+        colors.normalColor      = img.color;
+        colors.highlightedColor = new Color(0.45f, 0.45f, 0.45f, 1f);
+        colors.pressedColor     = new Color(0.2f, 0.2f, 0.2f, 1f);
+        colors.disabledColor    = new Color(0.2f, 0.2f, 0.2f, 0.5f);
         btn.colors = colors;
 
         var textGo = new GameObject("Label");

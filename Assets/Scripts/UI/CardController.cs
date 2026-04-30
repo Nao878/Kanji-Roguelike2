@@ -40,6 +40,9 @@ public class CardController : MonoBehaviour,
     private bool isHighlighted = false;
     private Color originalColor;
 
+    // ホバースケール
+    private Coroutine _hoverScaleCoroutine;
+
     // 選択ハイライト状態
     private bool isSelected = false;
     private Outline selectionOutline;
@@ -383,26 +386,43 @@ public class CardController : MonoBehaviour,
             }
         }
 
-        // 通常のホバー → 少し持ち上げる
+        // 通常のホバー → 少し持ち上げ ＋ 1.05倍スケールTween
         if (!isHighlighted)
         {
             var pos = rectTransform.anchoredPosition;
             pos.y += 10f;
             rectTransform.anchoredPosition = pos;
         }
+        if (_hoverScaleCoroutine != null) StopCoroutine(_hoverScaleCoroutine);
+        _hoverScaleCoroutine = StartCoroutine(ScaleTween(Vector3.one * 1.05f, 0.08f));
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         HideFusionPreview();
 
-        // ホバー解除
+        // ホバー解除 → スケールを1.0に戻す
         if (!isHighlighted)
         {
             var pos = rectTransform.anchoredPosition;
             pos.y -= 10f;
             rectTransform.anchoredPosition = pos;
         }
+        if (_hoverScaleCoroutine != null) StopCoroutine(_hoverScaleCoroutine);
+        _hoverScaleCoroutine = StartCoroutine(ScaleTween(Vector3.one, 0.08f));
+    }
+
+    private System.Collections.IEnumerator ScaleTween(Vector3 target, float duration)
+    {
+        Vector3 start = transform.localScale;
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            transform.localScale = Vector3.Lerp(start, target, Mathf.Clamp01(t / duration));
+            yield return null;
+        }
+        transform.localScale = target;
     }
 
     /// <summary>
@@ -641,16 +661,25 @@ public class CardController : MonoBehaviour,
         textRect.offsetMax = new Vector2(-4f, -2f);
 
         var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
-        string dmgStr = predictedDamage > 0 ? $"⚔ {predictedDamage} DMG" : "⚔ 攻撃";
+        // 日本語テキストに統一（文字化け防止）
+        string dmgStr = predictedDamage > 0 ? $"攻撃\n{predictedDamage} ダメージ" : "攻撃";
         if (!string.IsNullOrEmpty(statusText)) dmgStr += $"\n{statusText}";
         tmp.text = dmgStr;
-        tmp.fontSize = predictedDamage > 0 ? 16f : 18f;
-        tmp.color = new Color(0.1f, 0.05f, 0f); // 濃い茶色（黄背景に映える）
+        tmp.fontSize = predictedDamage > 0 ? 15f : 18f;
+        tmp.color = new Color(0.1f, 0.05f, 0f);
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.fontStyle = TMPro.FontStyles.Bold;
         tmp.outlineWidth = 0.2f;
         tmp.outlineColor = new Color(1f, 1f, 1f, 0.5f);
-        if (appFont != null) tmp.font = appFont;
+        // フォント設定（nullの場合はシーン内から自動取得）
+        var fontToUse = appFont;
+        if (fontToUse == null)
+        {
+            var allFonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
+            foreach (var f in allFonts)
+                if (f.name.Contains("AppFont") || f.name.Contains("JP")) { fontToUse = f; break; }
+        }
+        if (fontToUse != null) tmp.font = fontToUse;
 
         // クリック時: カードを使用して敵を攻撃
         CardController selfRef = this;
@@ -922,14 +951,8 @@ public class CardController : MonoBehaviour,
 
     private Color GetEffectColor(CardEffectType type)
     {
-        switch (type)
-        {
-            case CardEffectType.Attack: return new Color(0.85f, 0.25f, 0.25f, 0.9f);
-            case CardEffectType.Defense: return new Color(0.25f, 0.5f, 0.85f, 0.9f);
-            case CardEffectType.Heal: return new Color(0.25f, 0.8f, 0.35f, 0.9f);
-            case CardEffectType.Buff: return new Color(0.85f, 0.7f, 0.2f, 0.9f);
-            case CardEffectType.Special: return new Color(0.7f, 0.3f, 0.85f, 0.9f);
-            default: return new Color(0.5f, 0.5f, 0.5f, 0.9f);
-        }
+        // タスク3: カード背景はダークグレー（#222222）に統一
+        // 属性による色差はBattleUI側でボーダー（枠）として適用
+        return new Color(0.133f, 0.133f, 0.133f, 0.95f);
     }
 }

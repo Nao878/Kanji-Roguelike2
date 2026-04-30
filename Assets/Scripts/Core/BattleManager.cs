@@ -97,8 +97,11 @@ public class BattleManager : MonoBehaviour
         lastComboKanji = "";
     }
 
+    [Header("BPM波紋エフェクト")]
+    public BPMRippleEffect bpmRipple;
+
     /// <summary>
-    /// 戦闘開始
+    /// 戦闘開始（3秒間の開戦トランジション演出を経て本戦闘を開始）
     /// </summary>
     public void StartBattle(EnemyData enemy)
     {
@@ -108,26 +111,41 @@ public class BattleManager : MonoBehaviour
             return;
         }
 
+        // 事前データセットアップ（トランジション中は表示されない）
         currentEnemyData = Instantiate(enemy);
-
         enemyCurrentHP = enemy.maxHP;
         isPlayerTurn = true;
         enemyIsStunned = false;
-
         lastPlayedKanji = "";
         lastPlayedElement = CardElement.None;
         elementChainCount = 0;
         currentComboCount = 0;
         lastComboKanji = "";
+
+        Debug.Log($"[BattleManager] 開戦演出開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
+
+        // 3秒間の開戦トランジション演出（BGMはTransitionManager内で再生開始）
+        if (BattleTransitionManager.Instance != null)
+        {
+            BattleTransitionManager.Instance.PlayBattleTransition(BeginBattleAfterTransition);
+        }
+        else
+        {
+            // TransitionManagerが存在しない場合は即座に開始
+            if (AudioManager.Instance != null) AudioManager.Instance.PlayBattleBGM();
+            BeginBattleAfterTransition();
+        }
+    }
+
+    /// <summary>
+    /// トランジション完了後に実際の戦闘を開始
+    /// </summary>
+    private void BeginBattleAfterTransition()
+    {
         battleState = BattleState.PlayerTurn;
+        AddBattleLog($"『{currentEnemyData.displayKanji}』{currentEnemyData.enemyName}が現れた！");
 
-        Debug.Log($"[BattleManager] 戦闘開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
-        AddBattleLog($"『{enemy.displayKanji}』{enemy.enemyName}が現れた！");
-
-        // BGM再生
-        if (AudioManager.Instance != null) AudioManager.Instance.PlayBattleBGM();
-
-        // ★ 敵UIを確実にリセット（前回のデスVFXでSetActive(false)された状態を復元）
+        // 敵UIをリセット（前回のデスVFXで非表示になっていた場合の復元）
         if (battleUI != null)
         {
             battleUI.ResetEnemyDisplay();
@@ -137,19 +155,45 @@ public class BattleManager : MonoBehaviour
         if (GameManager.Instance != null)
         {
             GameManager.Instance.ChangeState(GameState.Battle);
-            // 戦闘開始時にまずデッキを初期化（山札準備）
             GameManager.Instance.InitializeBattleDeck();
             GameManager.Instance.StartPlayerTurn();
         }
 
         UpdateUI();
 
-        // BattleUIの手札を更新
         if (battleUI != null)
         {
             battleUI.UpdateHandUI();
             battleUI.UpdateStatusUI();
         }
+
+        // BPM波紋エフェクトを起動
+        SetupBPMRipple();
+    }
+
+    /// <summary>
+    /// BPM波紋エフェクトをセットアップして起動
+    /// </summary>
+    private void SetupBPMRipple()
+    {
+        if (bpmRipple == null)
+        {
+            // まだ未生成なら自動生成
+            bpmRipple = gameObject.AddComponent<BPMRippleEffect>();
+        }
+
+        // 敵の漢字テキストを追跡ターゲットに設定
+        if (battleUI != null && battleUI.enemyKanjiText != null)
+        {
+            bpmRipple.enemyTransform = battleUI.enemyKanjiText.transform;
+        }
+
+        // Canvas参照
+        var canvas = FindObjectOfType<Canvas>();
+        if (canvas != null) bpmRipple.targetCanvas = canvas;
+
+        bpmRipple.SetActive(true);
+        Debug.Log("[BattleManager] BPM波紋エフェクト起動");
     }
 
     /// <summary>
@@ -525,6 +569,9 @@ public class BattleManager : MonoBehaviour
             AddBattleLog("敗北...");
             Debug.Log("[BattleManager] 戦闘敗北...");
 
+            // BPM波紋エフェクト停止
+            if (bpmRipple != null) bpmRipple.SetActive(false);
+
             // ゲームオーバーパネルを表示
             if (gameOverPanel != null)
             {
@@ -539,7 +586,10 @@ public class BattleManager : MonoBehaviour
 
     private void ReturnToField()
     {
-        // BGM停止 → フィールドBGMへ
+        // BPM波紋エフェクト停止
+        if (bpmRipple != null) bpmRipple.SetActive(false);
+
+        // BGMフェードしてフィールドBGMへ
         if (AudioManager.Instance != null) AudioManager.Instance.PlayFieldBGM();
 
         // フィールドマネージャーに勝利通知
