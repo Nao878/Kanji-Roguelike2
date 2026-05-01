@@ -7,7 +7,7 @@ using UnityEngine.EventSystems;
 /// </summary>
 public static class PlayModeCardTest
 {
-    [MenuItem("Tools/Test/Click Card In Play Mode")]
+    // [MenuItem("Tools/Test/Click Card In Play Mode")]
     public static void ClickCard()
     {
         if (!EditorApplication.isPlaying)

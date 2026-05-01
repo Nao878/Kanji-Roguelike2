@@ -12,7 +12,7 @@ public class GameDesignDocGenerator : EditorWindow
 {
     private const string OUTPUT_PATH = "Assets/GameDesignDoc.md";
 
-    [MenuItem("Tools/Update Game Design Doc")]
+    // [MenuItem("Tools/Update Game Design Doc")]
     public static void Generate()
     {
         StringBuilder sb = new StringBuilder();

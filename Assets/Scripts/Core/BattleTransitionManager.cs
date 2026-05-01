@@ -54,7 +54,7 @@ public class BattleTransitionManager : MonoBehaviour
         canvasGo.transform.SetParent(transform, false);
         _canvas = canvasGo.AddComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        _canvas.sortingOrder = 9999;
+        _canvas.sortingOrder = 10000;
 
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -204,6 +204,9 @@ public class BattleTransitionManager : MonoBehaviour
         _bottomPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
         _whiteLine.gameObject.SetActive(false);
 
+        // ===== 画面が完全に黒く覆われた瞬間に、裏で状態移行・準備を行う =====
+        onComplete?.Invoke();
+
         // ===== フェーズ③「開」「戦」テキストポップアップ（1.3 ~ 1.8秒）=====
         _kaiText.gameObject.SetActive(true);
         _senText.gameObject.SetActive(true);
@@ -257,6 +260,5 @@ public class BattleTransitionManager : MonoBehaviour
         _bottomPanel.GetComponent<RectTransform>().anchoredPosition = new Vector2(refWidth, 0f);
 
         _isPlaying = false;
-        onComplete?.Invoke();
     }
 }

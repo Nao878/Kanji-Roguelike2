@@ -609,8 +609,8 @@ public class CardController : MonoBehaviour,
     {
         switch (card.effectType)
         {
-            case CardEffectType.Stun: return "スタン付与";
-            case CardEffectType.Special: return $"吸血 +{UnityEngine.Mathf.CeilToInt(card.effectValue * 0.6f)}HP";
+            case CardEffectType.Stun: return "STUN";
+            case CardEffectType.Special: return $"+{UnityEngine.Mathf.CeilToInt(card.effectValue * 0.6f)} HP";
             default: return "";
         }
     }
@@ -661,8 +661,8 @@ public class CardController : MonoBehaviour,
         textRect.offsetMax = new Vector2(-4f, -2f);
 
         var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
-        // 日本語テキストに統一（文字化け防止）
-        string dmgStr = predictedDamage > 0 ? $"攻撃\n{predictedDamage} ダメージ" : "攻撃";
+        // 英数字テキストに統一（文字化けの根本解決）
+        string dmgStr = predictedDamage > 0 ? $"{predictedDamage} DMG" : "ATTACK";
         if (!string.IsNullOrEmpty(statusText)) dmgStr += $"\n{statusText}";
         tmp.text = dmgStr;
         tmp.fontSize = predictedDamage > 0 ? 15f : 18f;
@@ -671,15 +671,17 @@ public class CardController : MonoBehaviour,
         tmp.fontStyle = TMPro.FontStyles.Bold;
         tmp.outlineWidth = 0.2f;
         tmp.outlineColor = new Color(1f, 1f, 1f, 0.5f);
-        // フォント設定（nullの場合はシーン内から自動取得）
-        var fontToUse = appFont;
-        if (fontToUse == null)
+        
+        // フォントはUnity標準の英語フォントを使用するため、特別な設定をせずデフォルトに任せるか直接Arialを検索する
+        var allFonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
+        foreach (var f in allFonts)
         {
-            var allFonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
-            foreach (var f in allFonts)
-                if (f.name.Contains("AppFont") || f.name.Contains("JP")) { fontToUse = f; break; }
+            if (f.name.Contains("LiberationSans SDF") || f.name.Contains("Arial"))
+            {
+                tmp.font = f;
+                break;
+            }
         }
-        if (fontToUse != null) tmp.font = fontToUse;
 
         // クリック時: カードを使用して敵を攻撃
         CardController selfRef = this;

@@ -8,7 +8,7 @@ using System.Collections;
 /// </summary>
 public class AutoBattleVerifier : EditorWindow
 {
-    [MenuItem("Tools/Verify Battle Fixes")]
+    // [MenuItem("Tools/Verify Battle Fixes")]
     public static void VerifyBattleFixes()
     {
         Debug.Log("=== バトル修正検証テスト開始 ===");

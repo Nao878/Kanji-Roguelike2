@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEditor;
 
 public static class TestRunner {
-    [MenuItem("Test/RunRetryTest")]
+    // [MenuItem("Test/RunRetryTest")]
     public static void Run() {
         var gm = GameManager.Instance;
         if (gm != null) {

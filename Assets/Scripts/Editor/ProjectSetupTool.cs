@@ -14,7 +14,7 @@ public class ProjectSetupTool : EditorWindow
 {
     private static TMP_FontAsset appFont;
 
-    [MenuItem("Tools/Setup Kanji Roguelike")]
+    // [MenuItem("Tools/Setup Kanji Roguelike")]
     public static void SetupProject()
     {
         Debug.Log("=== 漢字ローグライク セットアップ開始 ===");

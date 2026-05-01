@@ -21,7 +21,7 @@ public static class AutoBattleTest
         EditorApplication.playModeStateChanged += OnPlayModeChanged;
     }
 
-    [MenuItem("Tools/Test/Start Battle And Click Card")]
+    // [MenuItem("Tools/Test/Start Battle And Click Card")]
     public static void StartBattleTest()
     {
         EditorPrefs.SetBool(AUTO_BATTLE_KEY, true);
