@@ -100,9 +100,30 @@ public class GameManager : MonoBehaviour
             gameOverPanel.SetActive(false);
     }
 
+    [Header("ヘルプ")]
+    public GameObject helpPanel;
+
     private void Start()
     {
         InitializeGame();
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(KeyCode.F1))
+        {
+            ToggleHelpPanel();
+        }
+    }
+
+    public void ToggleHelpPanel()
+    {
+        if (helpPanel != null)
+        {
+            bool isActive = !helpPanel.activeSelf;
+            helpPanel.SetActive(isActive);
+            Time.timeScale = isActive ? 0f : 1f;
+        }
     }
 
     /// <summary>

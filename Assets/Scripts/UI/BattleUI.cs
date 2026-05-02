@@ -437,11 +437,12 @@ public class BattleUI : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null || gm.hand.Count >= gm.initialHandSize) return;
 
-        if (gm.playerMana < 1)
+        // APが1以上（消費AP以上）であることを正しく判定する
+        if (gm.playerMana <= 0)
         {
             // AP不足フィードバック
             if (VFXManager.Instance != null && playerManaText != null)
-                VFXManager.Instance.PlayAPShortageEffect(playerManaText.GetComponent<UnityEngine.RectTransform>());
+                VFXManager.Instance.PlayAPShortageEffect(playerManaText.GetComponent<RectTransform>());
             return;
         }
 

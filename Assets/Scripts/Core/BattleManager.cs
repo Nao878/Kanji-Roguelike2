@@ -528,6 +528,13 @@ public class BattleManager : MonoBehaviour
         }
 
         UpdateUI();
+        
+        // BattleUI側も確実に更新する
+        if (battleUI != null)
+        {
+            battleUI.UpdateHandUI();
+            battleUI.UpdateStatusUI();
+        }
     }
 
     /// <summary>

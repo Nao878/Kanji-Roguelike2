@@ -617,74 +617,58 @@ public class CardController : MonoBehaviour,
 
     private void CreateAttackButtonOnEnemy(Transform enemyTransform, int predictedDamage, string statusText)
     {
-        Canvas canvas = enemyTransform.GetComponentInParent<Canvas>();
-        if (canvas == null) canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+        // すでに存在していれば消す
+        ClearAttackButton();
+
+        if (enemyTransform == null)
+        {
+            Debug.LogWarning("[CardController] 敵のTransformが見つかりません");
+            return;
+        }
+
+        // Canvas直下にボタンを生成（敵のScreen座標に合わせて配置）
+        var canvas = FindObjectOfType<Canvas>();
         if (canvas == null) return;
 
-        GameObject btnObj = new GameObject("AttackPredictButton");
-        btnObj.transform.SetParent(canvas.transform, false);
-        btnObj.transform.SetAsLastSibling();
+        var btnGo = new GameObject("AttackPredictButton");
+        btnGo.transform.SetParent(canvas.transform, false);
 
-        var btnRect = btnObj.AddComponent<RectTransform>();
-        btnRect.sizeDelta = new Vector2(140f, 70f);
+        var rect = btnGo.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(140f, 50f);
+        // 敵の少し上に配置
+        Vector3 screenPos = Camera.main.WorldToScreenPoint(enemyTransform.position + Vector3.up * 1.5f);
+        rect.position = screenPos;
 
-        // 敵のCanvas座標に配置
-        Vector3 worldPos = enemyTransform.position;
-        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, worldPos);
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvas.transform as RectTransform, screenPoint, canvas.worldCamera, out Vector2 localPoint);
-        btnRect.anchoredPosition = localPoint + new Vector2(0, 20f);
+        var bg = btnGo.AddComponent<UnityEngine.UI.Image>();
+        bg.color = new Color(0.8f, 0.2f, 0.2f, 0.9f);
 
-        // 背景：目立つ黄色
-        var btnImg = btnObj.AddComponent<Image>();
-        btnImg.color = new Color(1f, 0.85f, 0.05f, 0.97f);
+        var btn = btnGo.AddComponent<UnityEngine.UI.Button>();
 
-        // Outline（黒の太い縁取り）
-        var btnOutline = btnObj.AddComponent<Outline>();
-        btnOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
-        btnOutline.effectDistance = new Vector2(4f, -4f);
-
-        var btn = btnObj.AddComponent<Button>();
-        var colors = btn.colors;
-        colors.normalColor = btnImg.color;
-        colors.highlightedColor = new Color(1f, 1f, 0.3f, 1f);
-        colors.pressedColor = new Color(0.8f, 0.6f, 0f, 1f);
-        btn.colors = colors;
-
-        // 剣アイコン + ダメージ表示テキスト
-        var textGo = new GameObject("AttackText");
-        textGo.transform.SetParent(btnObj.transform, false);
-        var textRect = textGo.AddComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(4f, 2f);
-        textRect.offsetMax = new Vector2(-4f, -2f);
-
+        var textGo = new GameObject("Text");
+        textGo.transform.SetParent(btnGo.transform, false);
         var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
-        // 英数字テキストに統一（文字化けの根本解決）
+        
         string dmgStr = predictedDamage > 0 ? $"{predictedDamage} DMG" : "ATTACK";
         if (!string.IsNullOrEmpty(statusText)) dmgStr += $"\n{statusText}";
         tmp.text = dmgStr;
-        tmp.fontSize = predictedDamage > 0 ? 15f : 18f;
-        tmp.color = new Color(0.1f, 0.05f, 0f);
+        tmp.color = Color.white;
+        tmp.fontSize = 24;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
-        tmp.fontStyle = TMPro.FontStyles.Bold;
-        tmp.outlineWidth = 0.2f;
-        tmp.outlineColor = new Color(1f, 1f, 1f, 0.5f);
-        
-        // フォントはUnity標準の英語フォントを使用するため、特別な設定をせずデフォルトに任せるか直接Arialを検索する
-        var allFonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
-        foreach (var f in allFonts)
-        {
-            if (f.name.Contains("LiberationSans SDF") || f.name.Contains("Arial"))
-            {
-                tmp.font = f;
-                break;
-            }
-        }
 
-        // クリック時: カードを使用して敵を攻撃
-        CardController selfRef = this;
+        // フォントのアトラス露出バグを防ぐため、appFontを割り当てるか、デフォルトを使用する
+        if (appFont != null) 
+        {
+            tmp.font = appFont;
+        }
+        tmp.raycastTarget = false; // クリック妨害を防止
+
+        var textRect = textGo.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        var selfRef = this;
         btn.onClick.AddListener(() =>
         {
             ClearAttackButton();
@@ -694,11 +678,12 @@ public class CardController : MonoBehaviour,
             if (gmInner == null || selfRef == null || selfRef.cardData == null) return;
 
             int cost = selfRef.cardData.isFusionResult ? 1 : selfRef.cardData.cost;
+            // 消費APの判定をより厳密化（APがコスト未満なら行動不可）
             if (gmInner.playerMana < cost)
             {
                 var buiInner = gmInner.battleManager?.battleUI;
                 if (VFXManager.Instance != null && buiInner?.playerManaText != null)
-                    VFXManager.Instance.PlayAPShortageEffect(buiInner.playerManaText.GetComponent<UnityEngine.RectTransform>());
+                    VFXManager.Instance.PlayAPShortageEffect(buiInner.playerManaText.GetComponent<RectTransform>());
                 return;
             }
 
@@ -708,14 +693,7 @@ public class CardController : MonoBehaviour,
             UnityEngine.Object.Destroy(selfRef.gameObject);
         });
 
-        // ボヨヨン出現
-        btnObj.transform.localScale = Vector3.zero;
-        if (VFXManager.Instance != null)
-            VFXManager.Instance.PlaySpawnEffect(btnObj);
-        else
-            btnObj.transform.localScale = Vector3.one;
-
-        activeAttackButton = btnObj;
+        activeAttackButton = btnGo;
     }
 
     public static void ClearAttackButton()
