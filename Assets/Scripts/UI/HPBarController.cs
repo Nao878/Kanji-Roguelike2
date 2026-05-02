@@ -44,6 +44,9 @@ public class HPBarController : MonoBehaviour
         RefreshColor(newFill);
         RefreshOverhealBar(current, max);
 
+        // Update bar width based on max HP (e.g., 2 pixels per HP)
+        UpdateBarWidth(max);
+
         if (mainTween != null) StopCoroutine(mainTween);
         mainTween = StartCoroutine(CoMain(newFill));
 
@@ -77,7 +80,30 @@ public class HPBarController : MonoBehaviour
         currentFill = fill;
         RefreshColor(fill);
         RefreshOverhealBar(current, max);
+        UpdateBarWidth(max);
     }
+
+    private void UpdateBarWidth(int maxHP)
+    {
+        var rect = GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            // If anchored to stretch (anchorMin.x == 0, anchorMax.x == 1), we should change it to left-aligned fixed width
+            if (rect.anchorMin.x == 0f && rect.anchorMax.x == 1f)
+            {
+                rect.anchorMin = new Vector2(0f, rect.anchorMin.y);
+                rect.anchorMax = new Vector2(0f, rect.anchorMax.y);
+                rect.pivot = new Vector2(0f, rect.pivot.y);
+                rect.anchoredPosition = new Vector2(0f, rect.anchoredPosition.y);
+            }
+            
+            // Base width + scaled width. For example, 100 width for 50 HP.
+            // Adjust the multiplier as appropriate for the UI design.
+            float targetWidth = Mathf.Clamp(50f + maxHP * 1.5f, 80f, 300f);
+            rect.sizeDelta = new Vector2(targetWidth, rect.sizeDelta.y);
+        }
+    }
+
 
     // ──────────────────────────────────────────────
     // ステータスアイコン（スタン/バフ表示）

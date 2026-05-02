@@ -704,7 +704,7 @@ public class FieldManager : MonoBehaviour
         if (gm == null) return;
 
         if (inventoryCountText != null)
-            inventoryCountText.text = $"所持: {gm.inventory.Count}/{gm.inventoryMaxSize}";
+            inventoryCountText.text = $"デッキ: {gm.inventory.Count}/{gm.inventoryMaxSize}";
         if (hpText != null)
             hpText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
         if (goldText != null)
