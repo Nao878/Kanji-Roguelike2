@@ -563,6 +563,194 @@ public class VFXManager : MonoBehaviour
     }
 
     // ===========================================
+    // ド派手合体演出 (Grand Fusion Sequence)
+    // ===========================================
+
+    /// <summary>
+    /// 画面中央でのド派手合体演出（0.75秒以内に完結）
+    /// </summary>
+    public void PlayGrandFusionSequence(KanjiCardData card1, KanjiCardData card2, KanjiCardData resultCard, System.Action onComplete)
+    {
+        StartCoroutine(CoGrandFusionSequence(card1, card2, resultCard, onComplete));
+    }
+
+    private IEnumerator CoGrandFusionSequence(KanjiCardData card1, KanjiCardData card2, KanjiCardData resultCard, System.Action onComplete)
+    {
+        Transform canvasParent = GetCanvasParent();
+        if (canvasParent == null) { onComplete?.Invoke(); yield break; }
+
+        var canvasRect = canvasParent.GetComponent<RectTransform>();
+
+        // ── 暗転オーバーレイ（入力ブロック兼） ──
+        var dimObj = new GameObject("GrandFusionDim");
+        dimObj.transform.SetParent(canvasParent, false);
+        dimObj.transform.SetAsLastSibling();
+        var dimRt = dimObj.AddComponent<RectTransform>();
+        dimRt.anchorMin = Vector2.zero; dimRt.anchorMax = Vector2.one;
+        dimRt.offsetMin = Vector2.zero; dimRt.offsetMax = Vector2.zero;
+        var dimImg = dimObj.AddComponent<Image>();
+        dimImg.color = new Color(0f, 0f, 0f, 0f);
+        dimImg.raycastTarget = true;
+
+        float elapsed = 0f;
+        while (elapsed < 0.08f)
+        {
+            dimImg.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, 0.55f, elapsed / 0.08f));
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        dimImg.color = new Color(0f, 0f, 0f, 0.55f);
+
+        // ① 左右に2枚のカードゴーストを配置
+        var ghost1 = CreateFusionGhostCard(card1.kanji, canvasParent, false);
+        var ghost2 = CreateFusionGhostCard(card2.kanji, canvasParent, false);
+        var gr1 = ghost1.GetComponent<RectTransform>();
+        var gr2 = ghost2.GetComponent<RectTransform>();
+        gr1.anchoredPosition = new Vector2(-300f, 0f);
+        gr2.anchoredPosition = new Vector2( 300f, 0f);
+
+        // ② EaseIn Cubic で画面中央へ高速スライド（0.28秒）
+        float slideDur = 0.28f;
+        elapsed = 0f;
+        Vector2 s1 = gr1.anchoredPosition, s2 = gr2.anchoredPosition;
+        while (elapsed < slideDur)
+        {
+            float t = elapsed / slideDur;
+            float easeT = t * t * t;
+            gr1.anchoredPosition = Vector2.Lerp(s1, Vector2.zero, easeT);
+            gr2.anchoredPosition = Vector2.Lerp(s2, Vector2.zero, easeT);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // ③ 激突！ゴースト消去 + CFXR エフェクト + カメラシェイク
+        Destroy(ghost1);
+        Destroy(ghost2);
+
+        Vector3 canvasCenter = canvasRect.TransformPoint(Vector3.zero);
+        if (fusionCFXREffect != null) SpawnCFXREffect(fusionCFXREffect, canvasCenter);
+        if (criticalHitEffect != null) SpawnCFXREffect(criticalHitEffect, canvasCenter);
+        PlayCameraShake(22f, 0.35f);
+        PlayScreenFlash(canvasParent);
+
+        // ④ 結果カードをスケール0→バウンス表示（0.4秒）
+        var resultGhost = CreateFusionGhostCard(resultCard.kanji, canvasParent, true);
+        var rRt = resultGhost.GetComponent<RectTransform>();
+        rRt.anchoredPosition = Vector2.zero;
+        resultGhost.transform.localScale = Vector3.zero;
+
+        float bounceDur = 0.4f;
+        elapsed = 0f;
+        while (elapsed < bounceDur)
+        {
+            float s = spawnCurve.Evaluate(elapsed / bounceDur);
+            resultGhost.transform.localScale = Vector3.one * s;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        resultGhost.transform.localScale = Vector3.one;
+
+        // 暗転を消してフィールドを見せる
+        Destroy(dimObj);
+
+        // ⑤ 0.38秒表示 → フェードアウト（0.12秒）
+        yield return new WaitForSeconds(0.38f);
+
+        float fadeDur = 0.12f;
+        elapsed = 0f;
+        var cg = resultGhost.AddComponent<CanvasGroup>();
+        while (elapsed < fadeDur)
+        {
+            if (resultGhost == null) break;
+            cg.alpha = 1f - elapsed / fadeDur;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        if (resultGhost != null) Destroy(resultGhost);
+
+        onComplete?.Invoke();
+    }
+
+    /// <summary>
+    /// 合体演出用ゴーストカードUI生成
+    /// </summary>
+    private GameObject CreateFusionGhostCard(string kanji, Transform parent, bool isResult)
+    {
+        float w = isResult ? 155f : 115f;
+        float h = isResult ? 210f : 155f;
+
+        var go = new GameObject($"FusionGhost_{kanji}");
+        go.transform.SetParent(parent, false);
+        go.transform.SetAsLastSibling();
+
+        var rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot     = Vector2.one * 0.5f;
+        rect.sizeDelta = new Vector2(w, h);
+
+        var bg = go.AddComponent<Image>();
+        bg.color = isResult
+            ? new Color(0.78f, 0.58f, 0.04f, 0.97f)
+            : new Color(0.10f, 0.10f, 0.20f, 0.97f);
+
+        var ol = go.AddComponent<Outline>();
+        ol.effectColor    = isResult ? new Color(1f, 0.95f, 0.2f, 1f) : new Color(0.35f, 0.55f, 1f, 1f);
+        ol.effectDistance = new Vector2(4f, -4f);
+
+        var tGo = new GameObject("K");
+        tGo.transform.SetParent(go.transform, false);
+        var tmp = tGo.AddComponent<TMPro.TextMeshProUGUI>();
+        tmp.text      = kanji;
+        tmp.fontSize  = isResult ? 88f : 62f;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.color     = Color.white;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        if (appFont != null) tmp.font = appFont;
+        tmp.outlineWidth = 0.3f;
+        tmp.outlineColor = new Color(0f, 0f, 0f, 1f);
+
+        var tr = tGo.GetComponent<RectTransform>();
+        tr.anchorMin  = Vector2.zero;
+        tr.anchorMax  = Vector2.one;
+        tr.offsetMin  = Vector2.zero;
+        tr.offsetMax  = Vector2.zero;
+
+        return go;
+    }
+
+    /// <summary>
+    /// 全画面フラッシュ（合体衝突瞬間用）
+    /// </summary>
+    private void PlayScreenFlash(Transform canvasParent)
+    {
+        StartCoroutine(CoScreenFlash(canvasParent));
+    }
+
+    private IEnumerator CoScreenFlash(Transform canvasParent)
+    {
+        var flashObj = new GameObject("GrandFusionFlash");
+        flashObj.transform.SetParent(canvasParent, false);
+        flashObj.transform.SetAsLastSibling();
+        var rt = flashObj.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        var img = flashObj.AddComponent<Image>();
+        img.color = new Color(1f, 0.95f, 0.7f, 0.9f);
+        img.raycastTarget = false;
+
+        float dur = 0.22f;
+        float elapsed = 0f;
+        while (elapsed < dur)
+        {
+            img.color = new Color(1f, 0.95f, 0.7f, Mathf.Lerp(0.9f, 0f, elapsed / dur));
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        Destroy(flashObj);
+    }
+
+    // ===========================================
     // 「合体不可」ポップアップ（Screen Space - Camera対応）
     // ===========================================
 

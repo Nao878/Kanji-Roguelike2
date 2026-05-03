@@ -129,7 +129,7 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ？ボタンにToggleHelpPanelを自動紐付け
+    /// ？ボタンにToggleHelpPanelを自動紐付け＆安全な右上隅へ再配置
     /// </summary>
     private void WireHelpButton()
     {
@@ -137,6 +137,7 @@ public class GameManager : MonoBehaviour
         {
             helpButton.onClick.RemoveAllListeners();
             helpButton.onClick.AddListener(ToggleHelpPanel);
+            RepositionHelpButton(helpButton);
             Debug.Log("[GameManager] helpButtonをToggleHelpPanelに紐付けました");
             return;
         }
@@ -151,6 +152,7 @@ public class GameManager : MonoBehaviour
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(ToggleHelpPanel);
                 helpButton = btn;
+                RepositionHelpButton(btn);
                 Debug.Log("[GameManager] ？ボタンを自動検出してToggleHelpPanelに紐付けました");
                 return;
             }
@@ -161,11 +163,27 @@ public class GameManager : MonoBehaviour
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(ToggleHelpPanel);
                 helpButton = btn;
+                RepositionHelpButton(btn);
                 Debug.Log("[GameManager] ？ボタン(Legacy)を自動検出してToggleHelpPanelに紐付けました");
                 return;
             }
         }
         Debug.LogWarning("[GameManager] ？ボタンが見つかりませんでした。インスペクタでhelpButtonを設定してください。");
+    }
+
+    /// <summary>
+    /// ？ボタンを画面右上の安全な隅へ再配置（他UIとの被りを防ぐ）
+    /// </summary>
+    private void RepositionHelpButton(Button btn)
+    {
+        if (btn == null) return;
+        var rect = btn.GetComponent<RectTransform>();
+        if (rect == null) return;
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot     = new Vector2(1f, 1f);
+        rect.sizeDelta = new Vector2(62f, 62f);
+        rect.anchoredPosition = new Vector2(-10f, -10f);
     }
 
     /// <summary>
@@ -350,8 +368,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public bool UseCard(KanjiCardData card)
     {
-        // 合体カードは消費AP一律1
-        int actualCost = card.isFusionResult ? 1 : card.cost;
+        // 全カード消費AP一律1（仕様統一）
+        int actualCost = 1;
 
         if (playerMana < actualCost)
         {

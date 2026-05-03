@@ -22,6 +22,7 @@ public class DeckManagementUI : MonoBehaviour
     [Header("UI参照: その他")]
     public Button saveAndExitButton;
     public Button autoFillButton;
+    public Button closeButton;
     public TMP_FontAsset appFont;
 
     private List<GameObject> inventoryItems = new List<GameObject>();
@@ -90,9 +91,11 @@ public class DeckManagementUI : MonoBehaviour
         btnRect.offsetMax = new Vector2(-16f, -4f);
 
         autoFillButton  = MakeButton(btnBg.transform, "自動補填",
-            new Vector2(0f, 0f), new Vector2(0.44f, 1f), new Color(0.25f, 0.45f, 0.75f));
+            new Vector2(0f, 0f), new Vector2(0.30f, 1f), new Color(0.25f, 0.45f, 0.75f));
         saveAndExitButton = MakeButton(btnBg.transform, "保存して戻る",
-            new Vector2(0.56f, 0f), new Vector2(1f, 1f), new Color(0.15f, 0.6f, 0.25f));
+            new Vector2(0.33f, 0f), new Vector2(0.66f, 1f), new Color(0.15f, 0.6f, 0.25f));
+        closeButton = MakeButton(btnBg.transform, "閉じる",
+            new Vector2(0.69f, 0f), new Vector2(1f, 1f), new Color(0.55f, 0.15f, 0.15f));
     }
 
     // ── UI生成ヘルパー ──────────────────────────────────────────────────────
@@ -197,6 +200,7 @@ public class DeckManagementUI : MonoBehaviour
     {
         if (saveAndExitButton != null) saveAndExitButton.onClick.AddListener(OnSaveAndExit);
         if (autoFillButton != null) autoFillButton.onClick.AddListener(OnAutoFill);
+        if (closeButton != null) closeButton.onClick.AddListener(OnClose);
     }
 
     private void OnEnable()
@@ -349,5 +353,11 @@ public class DeckManagementUI : MonoBehaviour
         {
             GameManager.Instance.ChangeState(GameState.Field);
         }
+    }
+
+    private void OnClose()
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.ChangeState(GameState.Field);
     }
 }

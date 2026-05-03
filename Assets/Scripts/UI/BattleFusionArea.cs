@@ -187,32 +187,46 @@ public class BattleFusionArea : MonoBehaviour
         var resultCard = gm.GetCardById(resultId);
         if (resultCard == null) return;
 
-        // インベントリから素材を削除（消費型）
-        foreach (var mat in slottedCards)
+        // 素材カードを記録してスロットを即座にクリア（アニメーション中の重複操作防止）
+        var mat1 = slottedCards.Count > 0 ? slottedCards[0] : null;
+        var mat2 = slottedCards.Count > 1 ? slottedCards[slottedCards.Count - 1] : mat1;
+        var matList = new System.Collections.Generic.List<KanjiCardData>(slottedCards);
+        slottedCards.Clear();
+        UpdateUI();
+
+        if (mat1 == null || mat2 == null || VFXManager.Instance == null)
         {
-            gm.inventory.Remove(mat);
+            // VFX未設定時は即時適用
+            ExecuteFusion(gm, matList, resultCard, resultId);
+            return;
         }
 
-        // 結果を手札とインベントリに追加
+        // ド派手演出 → 完了コールバックでゲーム状態適用
+        fuseButton.interactable = false;
+        VFXManager.Instance.PlayGrandFusionSequence(mat1, mat2, resultCard, () =>
+        {
+            ExecuteFusion(gm, matList, resultCard, resultId);
+            if (fuseButton != null) fuseButton.interactable = slottedCards.Count >= 2;
+        });
+    }
+
+    private void ExecuteFusion(GameManager gm, System.Collections.Generic.List<KanjiCardData> mats,
+                                KanjiCardData resultCard, int resultId)
+    {
+        foreach (var mat in mats)
+            gm.inventory.Remove(mat);
+
         gm.hand.Add(resultCard);
         gm.AddToInventory(resultCard);
         if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultId);
 
-        // 合体によるAP回復 (+1)
-        gm.playerMana = Mathf.Min(gm.playerMaxMana, gm.playerMana + 1);
-        Debug.Log($"[BattleFusionArea] 合体ボーナス：AP+1回復（現在:{gm.playerMana}）");
+        // AP+1（上限なし）
+        gm.playerMana += 1;
+        Debug.Log($"[BattleFusionArea] 合体ボーナス：AP+1（現在:{gm.playerMana}）");
 
-        // 強調演出
-        if (VFXManager.Instance != null)
-        {
-            VFXManager.Instance.PlayFusionSuccessEffect(transform.position);
-        }
+        // スポーンアニメーション予約
+        if (VFXManager.Instance != null) VFXManager.Instance.RegisterSpawnEffect(resultCard);
 
-        // スロットをクリア
-        slottedCards.Clear();
-        UpdateUI();
-
-        // UIを更新
         if (gm.battleManager != null && gm.battleManager.battleUI != null)
         {
             gm.battleManager.battleUI.UpdateHandUI();

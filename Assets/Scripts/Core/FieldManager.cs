@@ -90,12 +90,28 @@ public class FieldManager : MonoBehaviour
 
     private void Start()
     {
+        // deckButton が Inspector で未設定なら名前で自動検索
+        if (deckButton == null)
+        {
+            var allBtns = FindObjectsOfType<UnityEngine.UI.Button>(true);
+            foreach (var b in allBtns)
+            {
+                if (b.gameObject.name == "FieldDeckBtn")
+                {
+                    deckButton = b;
+                    break;
+                }
+            }
+        }
+
         if (deckButton != null)
         {
+            deckButton.onClick.RemoveAllListeners();
             deckButton.onClick.AddListener(() => {
                 if (GameManager.Instance != null)
                     GameManager.Instance.ChangeState(GameState.DeckEdit);
             });
+            Debug.Log("[FieldManager] deckButtonをDeckEditに紐付けました");
         }
     }
 
