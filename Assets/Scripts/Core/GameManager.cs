@@ -102,10 +102,12 @@ public class GameManager : MonoBehaviour
 
     [Header("ヘルプ")]
     public GameObject helpPanel;
+    public Button helpButton;
 
     private void Start()
     {
         InitializeGame();
+        WireHelpButton();
     }
 
     private void Update()
@@ -124,6 +126,46 @@ public class GameManager : MonoBehaviour
             helpPanel.SetActive(isActive);
             Time.timeScale = isActive ? 0f : 1f;
         }
+    }
+
+    /// <summary>
+    /// ？ボタンにToggleHelpPanelを自動紐付け
+    /// </summary>
+    private void WireHelpButton()
+    {
+        if (helpButton != null)
+        {
+            helpButton.onClick.RemoveAllListeners();
+            helpButton.onClick.AddListener(ToggleHelpPanel);
+            Debug.Log("[GameManager] helpButtonをToggleHelpPanelに紐付けました");
+            return;
+        }
+
+        // インスペクタ未設定時は ? テキストを持つボタンを自動検索
+        var buttons = FindObjectsOfType<Button>(true);
+        foreach (var btn in buttons)
+        {
+            var tmp = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            if (tmp != null && (tmp.text.Trim() == "?" || tmp.text.Trim() == "？"))
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(ToggleHelpPanel);
+                helpButton = btn;
+                Debug.Log("[GameManager] ？ボタンを自動検出してToggleHelpPanelに紐付けました");
+                return;
+            }
+            // UnityEngine.UI.Text も確認
+            var legacyTxt = btn.GetComponentInChildren<UnityEngine.UI.Text>(true);
+            if (legacyTxt != null && (legacyTxt.text.Trim() == "?" || legacyTxt.text.Trim() == "？"))
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(ToggleHelpPanel);
+                helpButton = btn;
+                Debug.Log("[GameManager] ？ボタン(Legacy)を自動検出してToggleHelpPanelに紐付けました");
+                return;
+            }
+        }
+        Debug.LogWarning("[GameManager] ？ボタンが見つかりませんでした。インスペクタでhelpButtonを設定してください。");
     }
 
     /// <summary>

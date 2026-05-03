@@ -31,6 +31,7 @@ public class BattleManager : MonoBehaviour
     // 同字連撃コンボ
     public int currentComboCount = 0;
     private string lastComboKanji = "";
+    public string LastComboKanji => lastComboKanji;
     
     // 熟語によるボーナスダメージ等
     private System.Collections.Generic.Dictionary<string, int> jukugoCombos = new System.Collections.Generic.Dictionary<string, int>()
@@ -224,10 +225,10 @@ public class BattleManager : MonoBehaviour
 
         // カード効果を適用
         ApplyCardEffect(card);
-        UpdateUI();
         CheckBattleEnd();
 
-        // BattleUI更新
+        // 全アクション完了後に一度だけUI更新（APズレ防止のため必ずここで更新）
+        UpdateUI();
         if (battleUI != null)
         {
             battleUI.UpdateHandUI();

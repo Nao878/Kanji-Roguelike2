@@ -126,7 +126,8 @@ public class HPBarController : MonoBehaviour
     private void RefreshColor(float fill)
     {
         if (normalBar == null) return;
-        normalBar.color = IsOverhealed ? overhealColor : (fill < 0.3f ? lowHPColor : normalColor);
+        // オーバーヒール時も通常バーは緑のまま。黄色はoverhealBarで別表示
+        normalBar.color = fill < 0.3f ? lowHPColor : normalColor;
     }
 
     private void RefreshOverhealBar(int current, int max)

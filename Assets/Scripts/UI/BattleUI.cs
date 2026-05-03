@@ -140,13 +140,13 @@ public class BattleUI : MonoBehaviour
         var ovhRect = ovhObj.AddComponent<RectTransform>();
         ovhRect.anchorMin = new Vector2(0f, 0f);
         ovhRect.anchorMax = new Vector2(1f, 1f);
-        ovhRect.offsetMin = new Vector2(2f, 1f);
-        ovhRect.offsetMax = new Vector2(-2f, 0f);
+        ovhRect.offsetMin = new Vector2(2f, 2f);  // normalFillと同じrect
+        ovhRect.offsetMax = new Vector2(-2f, -2f);
         var ovhImg = ovhObj.AddComponent<Image>();
         ovhImg.type = Image.Type.Filled;
         ovhImg.fillMethod = Image.FillMethod.Horizontal;
         ovhImg.fillOrigin = (int)Image.OriginHorizontal.Left;
-        ovhImg.color = new Color(1f, 0.85f, 0f, 0.85f);
+        ovhImg.color = new Color(1f, 0.85f, 0f, 0.88f);
         ovhObj.SetActive(false);
 
         var iconGo = new GameObject("StatusIcon");
@@ -326,6 +326,9 @@ public class BattleUI : MonoBehaviour
         // セットアップ
         cardCtrl.Setup(data);
 
+        // コンボ・相殺バッジを付与
+        AttachBattleBadge(go.transform, data);
+
         return cardCtrl;
     }
 
@@ -345,6 +348,62 @@ public class BattleUI : MonoBehaviour
             case CardElement.Moon:  return new Color(0.6f, 0.6f, 1f, 0.9f);
             default:                return new Color(0.25f, 0.25f, 0.25f, 0.7f);
         }
+    }
+
+    /// <summary>
+    /// カードにコンボ・相殺バッジを付与
+    /// </summary>
+    private void AttachBattleBadge(Transform cardTransform, KanjiCardData data)
+    {
+        var bm = GameManager.Instance?.battleManager;
+        if (bm == null || bm.battleState != BattleManager.BattleState.PlayerTurn) return;
+        if (data == null) return;
+
+        bool isMirrorClash = bm.currentEnemyData != null && data.kanji == bm.currentEnemyData.displayKanji;
+        bool isCombo = !string.IsNullOrEmpty(bm.LastComboKanji) && data.kanji == bm.LastComboKanji;
+
+        if (isMirrorClash)
+            CreateBadge(cardTransform, "相殺", new Color(1f, 0.15f, 0.15f, 0.92f));
+        else if (isCombo)
+            CreateBadge(cardTransform, "コンボ", new Color(0.85f, 0.1f, 0.9f, 0.92f));
+    }
+
+    /// <summary>
+    /// カード上部にバッジを生成
+    /// </summary>
+    private void CreateBadge(Transform cardTransform, string text, Color bgColor)
+    {
+        var badgeGo = new GameObject("BattleBadge");
+        badgeGo.transform.SetParent(cardTransform, false);
+
+        var rect = badgeGo.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0.85f);
+        rect.anchorMax = new Vector2(1f, 1.0f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        var bg = badgeGo.AddComponent<Image>();
+        bg.color = bgColor;
+        bg.raycastTarget = false;
+
+        var textGo = new GameObject("BadgeText");
+        textGo.transform.SetParent(badgeGo.transform, false);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = 15f;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.raycastTarget = false;
+        if (appFont != null) tmp.font = appFont;
+        var tmpRect = textGo.GetComponent<RectTransform>();
+        tmpRect.anchorMin = Vector2.zero;
+        tmpRect.anchorMax = Vector2.one;
+        tmpRect.offsetMin = Vector2.zero;
+        tmpRect.offsetMax = Vector2.zero;
+
+        // バッジをカードUI最前面に
+        badgeGo.transform.SetAsLastSibling();
     }
 
     private System.Collections.IEnumerator DelayedUpdateHand()

@@ -91,11 +91,28 @@
 ---
 
 ## 攻撃ターゲット選択（Attack Prediction Button）
-- Attackタイプ（Attack / AttackAll / Special）カードをタップすると、カードが赤ハイライトされ、敵パネル上に**黄色の攻撃ボタン**が表示される
-- ボタンには予測ダメージ「⚔ N DMG」と状態異常情報（スタン / 吸血）が表示される
+- **全カードタイプ**をタップするとカードがハイライトされ、画面中央（敵とカードスロットの中間）に**予測ボタン**が表示される
+- 攻撃系（Attack/AttackAll/Special）→赤いボタン、その他→青いボタン
+- ボタンに表示されるテキスト例：
+  - Attack/AttackAll: `⚔ N DMG` / `⚔ N DMG (ALL)`
+  - Special: `⚔ N DMG / +M HP`
+  - Heal: `+N HP`
+  - Defense: `+N DEF`
+  - Buff: `+N ATK`
+  - Stun: `1 STUN`
+  - Draw: `N DRAW`
 - 予測ダメージは `effectValue + attackModifier + 攻撃バフ` を計算し、Mirror Clash（×3）/ Overpower（×1.5）ボーナスも反映
-- ボタンをタップすることで攻撃が実行される
+- **コンボ・相殺が発動する場合はボタンに特別テキストを表示**：
+  - 相殺（CLASH）: `3.0x DMG (CLASH)` + 実ダメージ
+  - コンボ（COMBO）: `1.5x DMG (COMBO)` または `2.0x DMG (COMBO)` + 実ダメージ
+- ボタンをタップすることで効果が実行される
 - 別カードタップまたは戦闘終了でボタンは消去される
+
+## 手札バッジUI（コンボ・相殺チャンス表示）
+- 手札カードの上部に小さなバッジ（背景色付きテキスト）を表示してプレイヤーに戦況を通知する
+- **相殺バッジ（赤）**: 手札カードの漢字が現在の敵の漢字と同一の場合、そのカード上に「相殺」と表示
+- **コンボバッジ（紫）**: 直前に使用したカードと同じ漢字が手札にある場合、そのカード上に「コンボ」と表示
+- バッジはUpdateHandUI呼び出し時に毎回再生成される（BattleUI.cs: AttachBattleBadge / CreateBadge）
 
 ---
 

@@ -628,75 +628,105 @@ public class CardController : MonoBehaviour,
 
     private string GetActionPredictText(GameManager gm, KanjiCardData card)
     {
-        string text = "";
-        if (card.effectType == CardEffectType.Attack || card.effectType == CardEffectType.AttackAll)
+        var bm = gm.battleManager;
+        switch (card.effectType)
         {
-            int dmg = card.effectValue + card.attackModifier + gm.playerAttackBuff;
-            var bm = gm.battleManager;
-            if (bm != null && bm.currentEnemyData != null)
+            case CardEffectType.Attack:
+            case CardEffectType.AttackAll:
             {
-                if (card.kanji == bm.currentEnemyData.displayKanji) dmg *= 3;
-                else if (card.componentCount > bm.currentEnemyData.componentCount) dmg = UnityEngine.Mathf.CeilToInt(dmg * 1.5f);
+                int dmg = card.effectValue + card.attackModifier + gm.playerAttackBuff;
+                bool isMirrorClash = false;
+                bool isCombo = false;
+                if (bm != null && bm.currentEnemyData != null)
+                {
+                    if (card.kanji == bm.currentEnemyData.displayKanji)
+                    {
+                        isMirrorClash = true;
+                        dmg *= 3;
+                    }
+                    else if (card.componentCount > bm.currentEnemyData.componentCount)
+                    {
+                        dmg = Mathf.CeilToInt(dmg * 1.5f);
+                    }
+                    if (!isMirrorClash && bm.LastComboKanji == card.kanji)
+                    {
+                        isCombo = true;
+                        int nextCount = bm.currentComboCount + 1;
+                        if (nextCount >= 3)      dmg = Mathf.CeilToInt(dmg * 2.0f);
+                        else if (nextCount >= 2) dmg = Mathf.CeilToInt(dmg * 1.5f);
+                    }
+                }
+                string allSuffix = card.effectType == CardEffectType.AttackAll ? " (ALL)" : "";
+                int finalDmg = Mathf.Max(0, dmg);
+                if (isMirrorClash)   return $"3.0x DMG (CLASH)\n⚔ {finalDmg}{allSuffix}";
+                if (isCombo)
+                {
+                    int nc = (bm?.currentComboCount ?? 0) + 1;
+                    float mult = nc >= 3 ? 2.0f : 1.5f;
+                    return $"{mult:F1}x DMG (COMBO)\n⚔ {finalDmg}{allSuffix}";
+                }
+                return $"⚔ {finalDmg} DMG{allSuffix}";
             }
-            text = $"{Mathf.Max(0, dmg)} DMG";
+            case CardEffectType.Special:
+            {
+                int dmg = card.effectValue + card.attackModifier + gm.playerAttackBuff;
+                int heal = Mathf.CeilToInt(dmg * 0.6f);
+                return $"⚔ {dmg} DMG / +{heal} HP";
+            }
+            case CardEffectType.Heal:
+                return $"+{card.effectValue + card.defenseModifier} HP";
+            case CardEffectType.Defense:
+                return $"+{card.effectValue + card.defenseModifier} DEF";
+            case CardEffectType.Buff:
+                return $"+{card.effectValue + card.attackModifier} ATK";
+            case CardEffectType.Stun:
+                return "1 STUN";
+            case CardEffectType.Draw:
+                return $"{card.effectValue} DRAW";
+            default:
+                return card.effectType.ToString();
         }
-        else if (card.effectType == CardEffectType.Heal)
-        {
-            text = $"回復 +{card.effectValue}";
-        }
-        else if (card.effectType == CardEffectType.Defense)
-        {
-            text = $"防御 +{card.effectValue}";
-        }
-        else if (card.effectType == CardEffectType.Stun)
-        {
-            text = "STUN";
-        }
-        else if (card.effectType == CardEffectType.Special)
-        {
-            text = $"特殊 (+{UnityEngine.Mathf.CeilToInt(card.effectValue * 0.6f)}HP)";
-        }
-        return text;
     }
 
     private void CreatePredictButton(Transform targetTransform, string text, bool isAttack)
     {
         ClearAttackButton();
-        if (targetTransform == null) return;
 
-        var canvas = FindObjectOfType<Canvas>();
+        var canvas = GetComponentInParent<Canvas>() ?? FindObjectOfType<Canvas>();
         if (canvas == null) return;
 
         var btnGo = new GameObject("ActionPredictButton");
         btnGo.transform.SetParent(canvas.transform, false);
+        btnGo.transform.SetAsLastSibling();
 
         var rect = btnGo.AddComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(160f, 50f);
-        
-        // CanvasのRenderModeを考慮して座標計算
-        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-        {
-            // Overlayの場合はそのままPixel座標。+150px 上に配置
-            rect.position = targetTransform.position + new Vector3(0, 150f, 0);
-        }
-        else
-        {
-            // ScreenSpaceCameraやWorldSpaceの場合はWorldToScreenPointなどを使用
-            rect.position = Camera.main.WorldToScreenPoint(targetTransform.position + Vector3.up * 1.5f);
-        }
+        rect.sizeDelta = new Vector2(200f, 70f);
+
+        // 敵エリアとカードスロットの中間（画面中央付近）に固定配置
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot     = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, 60f);   // 画面中央から少し上
 
         var bg = btnGo.AddComponent<UnityEngine.UI.Image>();
-        bg.color = isAttack ? new Color(0.8f, 0.2f, 0.2f, 0.9f) : new Color(0.2f, 0.6f, 0.8f, 0.9f); // 攻撃は赤、その他は青
+        bg.color = isAttack ? new Color(0.75f, 0.15f, 0.15f, 0.93f) : new Color(0.15f, 0.55f, 0.75f, 0.93f);
 
         var btn = btnGo.AddComponent<UnityEngine.UI.Button>();
+        var btnColors = btn.colors;
+        btnColors.highlightedColor = isAttack ? new Color(0.9f, 0.3f, 0.3f, 1f) : new Color(0.3f, 0.7f, 0.9f, 1f);
+        btnColors.pressedColor     = isAttack ? new Color(0.5f, 0.1f, 0.1f, 1f) : new Color(0.1f, 0.4f, 0.6f, 1f);
+        btn.colors = btnColors;
 
         var textGo = new GameObject("Text");
         textGo.transform.SetParent(btnGo.transform, false);
         var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
-        
+
         tmp.text = text;
         tmp.color = Color.white;
-        tmp.fontSize = 24;
+        tmp.fontSize = 22;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 14;
+        tmp.fontSizeMax = 22;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         if (appFont != null) tmp.font = appFont;
         tmp.raycastTarget = false;
