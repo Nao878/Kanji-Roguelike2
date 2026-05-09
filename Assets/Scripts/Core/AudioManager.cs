@@ -21,8 +21,24 @@ public class AudioManager : MonoBehaviour
     public AudioClip battleBGM2;
     [Tooltip("狼ボス専用BGM（Loneryboy）")]
     public AudioClip wolfBossBGM;
+    [Tooltip("鬼ボス専用BGM")]
+    public AudioClip oniBossBGM;
+    [Tooltip("絶ボス用BGM (CultusA)")]
+    public AudioClip zetsuBossBGMA;
+    [Tooltip("絶ボス用BGM (CultusB)")]
+    public AudioClip zetsuBossBGMB;
     [Tooltip("フィールドBGM")]
     public AudioClip fieldBGM;
+
+    public enum BossType
+    {
+        Wolf,
+        Oni,
+        Zetsu
+    }
+
+    private Coroutine _zetsuCoroutine;
+    private AudioSource _bgmSource2;
 
     [Header("BPM設定")]
     [Tooltip("battleBGM（404FreezeCode）のBPM")]
@@ -157,7 +173,10 @@ public class AudioManager : MonoBehaviour
         if (bgmSource.clip == selected && bgmSource.isPlaying) return;
 
         if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+        if (_zetsuCoroutine != null) StopCoroutine(_zetsuCoroutine);
         bgmSource.Stop();
+        if (_bgmSource2 != null) _bgmSource2.Stop();
+        bgmSource.loop = true;
         bgmSource.clip = selected;
         bgmSource.volume = bgmVolume;
         bgmSource.Play();
@@ -223,24 +242,32 @@ public class AudioManager : MonoBehaviour
     public void StopBGM()
     {
         if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+        if (_zetsuCoroutine != null) StopCoroutine(_zetsuCoroutine);
         bgmSource.Stop();
+        if (_bgmSource2 != null) _bgmSource2.Stop();
     }
 
     private IEnumerator FadeSwitchBGM(AudioClip newClip, float targetVol)
     {
+        if (_zetsuCoroutine != null) StopCoroutine(_zetsuCoroutine);
+
         // フェードアウト
-        if (bgmSource.isPlaying)
+        if (bgmSource.isPlaying || (_bgmSource2 != null && _bgmSource2.isPlaying))
         {
-            float startVol = bgmSource.volume;
+            float startVol1 = bgmSource.volume;
+            float startVol2 = _bgmSource2 != null ? _bgmSource2.volume : 0;
             float t = 0f;
             while (t < 1.0f)
             {
                 t += Time.deltaTime;
-                bgmSource.volume = Mathf.Lerp(startVol, 0f, t / 1.0f);
+                bgmSource.volume = Mathf.Lerp(startVol1, 0f, t / 1.0f);
+                if (_bgmSource2 != null) _bgmSource2.volume = Mathf.Lerp(startVol2, 0f, t / 1.0f);
                 yield return null;
             }
         }
         bgmSource.Stop();
+        if (_bgmSource2 != null) _bgmSource2.Stop();
+        bgmSource.loop = true;
         bgmSource.clip = newClip;
 
         // フェードイン
@@ -259,15 +286,98 @@ public class AudioManager : MonoBehaviour
 
     private IEnumerator FadeOutAndStop()
     {
-        float startVol = bgmSource.volume;
+        if (_zetsuCoroutine != null) StopCoroutine(_zetsuCoroutine);
+
+        float startVol1 = bgmSource.volume;
+        float startVol2 = _bgmSource2 != null ? _bgmSource2.volume : 0;
         float t = 0f;
         while (t < 1.0f)
         {
             t += Time.deltaTime;
-            bgmSource.volume = Mathf.Lerp(startVol, 0f, t / 1.0f);
+            bgmSource.volume = Mathf.Lerp(startVol1, 0f, t / 1.0f);
+            if (_bgmSource2 != null) _bgmSource2.volume = Mathf.Lerp(startVol2, 0f, t / 1.0f);
             yield return null;
         }
         bgmSource.Stop();
+        if (_bgmSource2 != null) _bgmSource2.Stop();
+    }
+
+    public void PlayBossBGM(BossType bossType)
+    {
+        if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+        if (_zetsuCoroutine != null) StopCoroutine(_zetsuCoroutine);
+        if (_bgmSource2 != null) _bgmSource2.Stop();
+        bgmSource.loop = true;
+
+        switch (bossType)
+        {
+            case BossType.Wolf:
+                if (wolfBossBGM != null)
+                {
+                    _fadeCoroutine = StartCoroutine(FadeSwitchBGM(wolfBossBGM, bgmVolume));
+                    CurrentBattleBPM = wolfBossBGM_BPM;
+                }
+                break;
+            case BossType.Oni:
+                if (oniBossBGM != null)
+                {
+                    _fadeCoroutine = StartCoroutine(FadeSwitchBGM(oniBossBGM, bgmVolume));
+                    CurrentBattleBPM = 120f; // Optional default
+                }
+                break;
+            case BossType.Zetsu:
+                if (zetsuBossBGMA != null && zetsuBossBGMB != null)
+                {
+                    _zetsuCoroutine = StartCoroutine(CoPlayZetsuBGM());
+                }
+                break;
+        }
+    }
+
+    private IEnumerator CoPlayZetsuBGM()
+    {
+        if (_bgmSource2 == null)
+        {
+            _bgmSource2 = gameObject.AddComponent<AudioSource>();
+            _bgmSource2.playOnAwake = false;
+        }
+
+        bgmSource.Stop();
+        _bgmSource2.Stop();
+
+        bgmSource.volume = bgmVolume;
+        _bgmSource2.volume = bgmVolume;
+
+        bgmSource.loop = false;
+        _bgmSource2.loop = false;
+
+        AudioClip nextClip = zetsuBossBGMA;
+        AudioSource currentSource = bgmSource;
+        AudioSource nextSource = _bgmSource2;
+
+        double nextStartTime = AudioSettings.dspTime + 0.1;
+        currentSource.clip = nextClip;
+        currentSource.PlayScheduled(nextStartTime);
+
+        bool isA = true;
+
+        while (true)
+        {
+            double duration = (double)currentSource.clip.samples / currentSource.clip.frequency;
+            nextStartTime += duration;
+
+            isA = !isA;
+            nextClip = isA ? zetsuBossBGMA : zetsuBossBGMB;
+
+            nextSource.clip = nextClip;
+            nextSource.PlayScheduled(nextStartTime);
+
+            yield return new WaitForSecondsRealtime((float)duration - 0.5f);
+
+            var temp = currentSource;
+            currentSource = nextSource;
+            nextSource = temp;
+        }
     }
 
     // ─────────────────────────────────────────────

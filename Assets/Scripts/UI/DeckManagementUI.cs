@@ -37,6 +37,18 @@ public class DeckManagementUI : MonoBehaviour
     private void AutoDetectFont()
     {
         if (appFont != null) return;
+        var fieldManager = FindObjectOfType<FieldManager>();
+        if (fieldManager != null && fieldManager.appFont != null)
+        {
+            appFont = fieldManager.appFont;
+            return;
+        }
+        var audioManager = FindObjectOfType<AudioManager>();
+        if (audioManager != null && audioManager.appFont != null)
+        {
+            appFont = audioManager.appFont;
+            return;
+        }
         var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
         foreach (var f in fonts)
         {

@@ -103,6 +103,7 @@ public class BattleManager : MonoBehaviour
     public BPMRippleEffect bpmRipple;
 
     private WolfBossManager wolfBossManager;
+    private OniBossManager oniBossManager;
 
     /// <summary>
     /// 戦闘開始（3秒間の開戦トランジション演出を経て本戦闘を開始）
@@ -134,6 +135,14 @@ public class BattleManager : MonoBehaviour
             if (AudioManager.Instance != null) AudioManager.Instance.SetWolfBossBGM();
             if (wolfBossManager == null) wolfBossManager = gameObject.AddComponent<WolfBossManager>();
             wolfBossManager.InitForWolfBoss();
+        }
+
+        // 鬼ボス戦闘の場合はOniBossManagerを初期化
+        if (enemy.isOniBoss)
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.SetWolfBossBGM(); // reuse boss BGM if any
+            if (oniBossManager == null) oniBossManager = gameObject.AddComponent<OniBossManager>();
+            oniBossManager.InitForOniBoss();
         }
 
         // 3秒間の開戦トランジション演出（BGMはTransitionManager内で再生開始）
@@ -495,20 +504,23 @@ public class BattleManager : MonoBehaviour
             return;
         }
 
-        int damage = currentEnemyData.attackPower;
-        AddBattleLog($"敵の攻撃！ {damage}ダメージ！");
-
-        if (GameManager.Instance != null)
+        if (!currentEnemyData.isOniBoss)
         {
-            GameManager.Instance.TakeDamage(damage);
-        }
+            int damage = currentEnemyData.attackPower;
+            AddBattleLog($"敵の攻撃！ {damage}ダメージ！");
 
-        Debug.Log($"[BattleManager] 敵が{damage}ダメージの攻撃");
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.TakeDamage(damage);
+            }
 
-        if (battleUI != null && VFXManager.Instance != null)
-        {
-            GameObject target = battleUI.playerHPText != null ? battleUI.playerHPText.gameObject : battleUI.gameObject;
-            VFXManager.Instance.PlayDamageEffect(target, damage, true);
+            Debug.Log($"[BattleManager] 敵が{damage}ダメージの攻撃");
+
+            if (battleUI != null && VFXManager.Instance != null)
+            {
+                GameObject target = battleUI.playerHPText != null ? battleUI.playerHPText.gameObject : battleUI.gameObject;
+                VFXManager.Instance.PlayDamageEffect(target, damage, true);
+            }
         }
 
         CheckBattleEnd();
@@ -519,6 +531,10 @@ public class BattleManager : MonoBehaviour
             if (currentEnemyData.isWolfBoss && wolfBossManager != null)
             {
                 wolfBossManager.OnWolfTurnAction(FinishEnemyTurn);
+            }
+            else if (currentEnemyData.isOniBoss && oniBossManager != null)
+            {
+                oniBossManager.OnOniTurnAction(FinishEnemyTurn);
             }
             else
             {

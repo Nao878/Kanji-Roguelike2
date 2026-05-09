@@ -33,6 +33,9 @@ public class EnemyData : ScriptableObject
     [Header("特殊ボスフラグ")]
     [Tooltip("狼ボス専用行動（手札破壊・HP激増）を有効にする")]
     public bool isWolfBoss = false;
+
+    [Tooltip("鬼ボス専用行動（カウントダウン・即死攻撃）を有効にする")]
+    public bool isOniBoss = false;
 }
 
 public enum EnemyType

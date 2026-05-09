@@ -81,6 +81,13 @@ public class FieldManager : MonoBehaviour
         CreateStairs();
         UpdateStatusUI();
 
+        if (battleCountOnCurrentFloor >= OniSpawnThreshold)
+        {
+            if (playerController != null) playerController.enabled = false;
+            StartCoroutine(CoForcedOniEncounter());
+            return;
+        }
+
         // 鬼が既にアクティブなら追跡を再開
         if (oniIsActive && oniObject == null)
         {
@@ -821,13 +828,6 @@ public class FieldManager : MonoBehaviour
         battleCountOnCurrentFloor++;
         Debug.Log($"[FieldManager] 今フロア戦闘回数: {battleCountOnCurrentFloor}/{OniSpawnThreshold}");
 
-        // 鬼スポーン判定（戦闘回数ベース）
-        if (battleCountOnCurrentFloor >= OniSpawnThreshold && !oniIsActive)
-        {
-            Debug.Log("[FieldManager] 鬼スポーン条件達成（戦闘10回）！");
-            TrySpawnOni();
-        }
-
         UpdateStatusUI();
 
         bool allDefeated = true;
@@ -840,6 +840,52 @@ public class FieldManager : MonoBehaviour
             Debug.Log("[FieldManager] 全敵撃破！ フィールドクリア！");
         }
     }
+
+    private IEnumerator CoForcedOniEncounter()
+    {
+        Debug.Log("[FieldManager] 強制鬼エンカウント警告演出開始！");
+        if (playerController != null) playerController.enabled = false;
+
+        var canvas = fieldContent.GetComponentInParent<Canvas>();
+        GameObject redScreenGo = null;
+        Image redScreenImg = null;
+        if (canvas != null)
+        {
+            redScreenGo = new GameObject("RedScreenWarning");
+            redScreenGo.transform.SetParent(canvas.transform, false);
+            redScreenGo.transform.SetAsLastSibling();
+            var rect = redScreenGo.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            redScreenImg = redScreenGo.AddComponent<Image>();
+            redScreenImg.color = new Color(1f, 0f, 0f, 0f);
+            redScreenImg.raycastTarget = true;
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopBGM();
+        }
+
+        float t = 0f;
+        while (t < 2.0f)
+        {
+            t += Time.deltaTime;
+            if (redScreenImg != null)
+            {
+                float alpha = Mathf.PingPong(t * 3f, 0.6f);
+                redScreenImg.color = new Color(1f, 0f, 0f, alpha);
+            }
+            yield return null;
+        }
+
+        if (redScreenGo != null) Destroy(redScreenGo);
+        
+        StartOniBattle();
+    }
+
 
     /// <summary>
     /// 戦闘敗北（逃走含む）：敵シンボルを残す
