@@ -140,7 +140,7 @@ public class BattleManager : MonoBehaviour
         // 鬼ボス戦闘の場合はOniBossManagerを初期化
         if (enemy.isOniBoss)
         {
-            if (AudioManager.Instance != null) AudioManager.Instance.SetWolfBossBGM(); // reuse boss BGM if any
+            if (AudioManager.Instance != null) AudioManager.Instance.SetOniBossBGM(); 
             if (oniBossManager == null) oniBossManager = gameObject.AddComponent<OniBossManager>();
             oniBossManager.InitForOniBoss();
         }

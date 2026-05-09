@@ -132,6 +132,11 @@ public class AudioManager : MonoBehaviour
                     wolfBossBGM = clip;
                     Debug.Log($"[AudioManager] wolfBossBGMを自動設定: {clip.name}");
                 }
+                else if (oniBossBGM == null && clipName.Contains("karma1loop"))
+                {
+                    oniBossBGM = clip;
+                    Debug.Log($"[AudioManager] oniBossBGMを自動設定: {clip.name}");
+                }
             }
 
             if (battleBGM == null) Debug.LogWarning("[AudioManager] battleBGM（404FreezeCode）が見つかりません");
@@ -202,6 +207,18 @@ public class AudioManager : MonoBehaviour
         {
             _nextBattleBGMOverride = battleBGM;
             _nextBattleBPMOverride = battleBGM1_BPM;
+        }
+    }
+
+    /// <summary>
+    /// 鬼ボス用：KARMA1Loopを次回戦闘BGMに強制設定
+    /// </summary>
+    public void SetOniBossBGM()
+    {
+        if (oniBossBGM != null)
+        {
+            _nextBattleBGMOverride = oniBossBGM;
+            _nextBattleBPMOverride = 120f;
         }
     }
 

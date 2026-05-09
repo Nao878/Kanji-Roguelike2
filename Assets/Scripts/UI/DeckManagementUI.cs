@@ -1,8 +1,101 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using System.Linq;
+
+/// <summary>
+/// ドラッグ＆ドロップ対応のカードコンポーネント
+/// </summary>
+public class DraggableCardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
+{
+    public KanjiCardData cardData;
+    public bool isDeckItem;
+    public DeckManagementUI uiRef;
+
+    private Vector2 originalPosition;
+    private Transform originalParent;
+    private int originalSiblingIndex;
+    private CanvasGroup canvasGroup;
+
+    private void Awake()
+    {
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        originalPosition = transform.position;
+        originalParent = transform.parent;
+        originalSiblingIndex = transform.GetSiblingIndex();
+
+        // Canvasの最前面に移動
+        transform.SetParent(uiRef.transform, true);
+        transform.SetAsLastSibling();
+
+        canvasGroup.blocksRaycasts = false;
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        transform.position = eventData.position;
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        canvasGroup.blocksRaycasts = true;
+
+        var results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(eventData, results);
+
+        bool droppedOnTarget = false;
+        foreach (var result in results)
+        {
+            if (isDeckItem && result.gameObject.name == "InventoryPanel")
+            {
+                uiRef.RemoveFromDeck(cardData);
+                droppedOnTarget = true;
+                break;
+            }
+            else if (!isDeckItem && result.gameObject.name == "DeckPanel")
+            {
+                if (uiRef.CanAddToDeck(cardData))
+                {
+                    uiRef.AddToDeck(cardData);
+                }
+                droppedOnTarget = true;
+                break;
+            }
+        }
+
+        if (!droppedOnTarget)
+        {
+            // 元の位置に戻す
+            transform.SetParent(originalParent, false);
+            transform.SetSiblingIndex(originalSiblingIndex);
+            transform.position = originalPosition;
+        }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.dragging) return;
+
+        if (isDeckItem)
+        {
+            uiRef.RemoveFromDeck(cardData);
+        }
+        else
+        {
+            if (uiRef.CanAddToDeck(cardData))
+            {
+                uiRef.AddToDeck(cardData);
+            }
+        }
+    }
+}
 
 /// <summary>
 /// デッキ編成UI
@@ -64,14 +157,10 @@ public class DeckManagementUI : MonoBehaviour
             tmp.font = appFont;
     }
 
-    /// <summary>
-    /// UI参照が未設定なら全パーツをコードで生成する
-    /// </summary>
     public void BuildUIIfNeeded()
     {
         if (inventoryScrollContent != null && deckScrollContent != null) return;
 
-        // ── タイトル ──────────────────────────────────────────────────────
         var titleGo = MakeText(transform, "デッキ編成", 26f, new Color(1f, 0.9f, 0.5f), "Title");
         var titleRect = titleGo.GetComponent<RectTransform>();
         titleRect.anchorMin = new Vector2(0f, 0.92f);
@@ -79,7 +168,6 @@ public class DeckManagementUI : MonoBehaviour
         titleRect.offsetMin = Vector2.zero;
         titleRect.offsetMax = Vector2.zero;
 
-        // ── 左パネル（インベントリ）──────────────────────────────────────
         var leftBg = MakePanel(transform, new Vector2(0f, 0.08f), new Vector2(0.5f, 0.92f),
                                new Color(0.1f, 0.1f, 0.18f, 0.85f), "InventoryPanel");
 
@@ -93,7 +181,6 @@ public class DeckManagementUI : MonoBehaviour
         inventoryScrollContent = MakeScrollView(leftBg.transform,
             new Vector2(0f, 0.02f), new Vector2(1f, 0.84f));
 
-        // ── 右パネル（デッキ）──────────────────────────────────────────────
         var rightBg = MakePanel(transform, new Vector2(0.5f, 0.08f), new Vector2(1f, 0.92f),
                                 new Color(0.1f, 0.18f, 0.1f, 0.85f), "DeckPanel");
 
@@ -112,7 +199,6 @@ public class DeckManagementUI : MonoBehaviour
         deckScrollContent = MakeScrollView(rightBg.transform,
             new Vector2(0f, 0.02f), new Vector2(1f, 0.84f));
 
-        // ── ボタン行 ────────────────────────────────────────────────────
         var btnBg = new GameObject("Buttons");
         btnBg.transform.SetParent(transform, false);
         var btnRect = btnBg.AddComponent<RectTransform>();
@@ -128,8 +214,6 @@ public class DeckManagementUI : MonoBehaviour
         closeButton = MakeButton(btnBg.transform, "閉じる",
             new Vector2(0.69f, 0f), new Vector2(1f, 1f), new Color(0.55f, 0.15f, 0.15f));
     }
-
-    // ── UI生成ヘルパー ──────────────────────────────────────────────────────
 
     private GameObject MakeText(Transform parent, string text, float size, Color color, string name = "Text")
     {
@@ -154,6 +238,10 @@ public class DeckManagementUI : MonoBehaviour
         rect.offsetMin = new Vector2(4f, 4f);
         rect.offsetMax = new Vector2(-4f, -4f);
         go.AddComponent<Image>().color = color;
+        
+        // レイキャストのターゲットになるよう設定
+        go.GetComponent<Image>().raycastTarget = true;
+        
         return go;
     }
 
@@ -247,43 +335,44 @@ public class DeckManagementUI : MonoBehaviour
         var dm = DeckManager.Instance ?? gm?.deckManager;
         if (gm == null || dm == null) return;
 
-        // リストをクリア
         ClearList(inventoryItems, inventoryScrollContent);
         ClearList(deckItems, deckScrollContent);
 
-        // インベントリの全カードを表示（デッキに入っていないものだけでなく、全枚数を表示）
-        // ただし、デッキ構築は「インベントリから選ぶ」ので、枚数管理が必要
-        
-        // インベントリを表示
-        foreach (var card in gm.inventory)
+        // インベントリの中で、まだデッキに入っていないカードを抽出
+        var availableCards = new List<KanjiCardData>(gm.inventory);
+        foreach (var card in dm.currentDeck)
+        {
+            var match = availableCards.FirstOrDefault(c => c.cardId == card.cardId);
+            if (match != null) availableCards.Remove(match);
+        }
+
+        foreach (var card in availableCards)
         {
             CreateInventoryItem(card);
         }
 
-        // デッキを表示
         foreach (var card in dm.currentDeck)
         {
             CreateDeckItem(card);
         }
 
-        UpdateStatusTexts();
+        UpdateStatusTexts(availableCards.Count);
     }
 
     private void ClearList(List<GameObject> list, Transform parent)
     {
         foreach (var item in list) if (item != null) Destroy(item);
         list.Clear();
-        // 万が一残っている場合
         foreach (Transform child in parent) Destroy(child.gameObject);
     }
 
-    private void UpdateStatusTexts()
+    private void UpdateStatusTexts(int availableCount)
     {
         var gm = GameManager.Instance;
         var dm = DeckManager.Instance ?? gm?.deckManager;
         if (gm == null || dm == null) return;
         
-        if (inventoryCountText != null) inventoryCountText.text = $"所持品: {gm.inventory.Count}枚";
+        if (inventoryCountText != null) inventoryCountText.text = $"未編成: {availableCount}枚";
         if (deckCountText != null) deckCountText.text = $"デッキ: {dm.currentDeck.Count} / {dm.maxDeckSize}枚";
 
         if (deckValidationText != null)
@@ -309,16 +398,20 @@ public class DeckManagementUI : MonoBehaviour
     private void CreateInventoryItem(KanjiCardData card)
     {
         var go = CreateBaseCardUI(card, inventoryScrollContent);
-        var btn = go.AddComponent<Button>();
-        btn.onClick.AddListener(() => AddToDeck(card));
+        var draggable = go.AddComponent<DraggableCardUI>();
+        draggable.cardData = card;
+        draggable.isDeckItem = false;
+        draggable.uiRef = this;
         inventoryItems.Add(go);
     }
 
     private void CreateDeckItem(KanjiCardData card)
     {
         var go = CreateBaseCardUI(card, deckScrollContent);
-        var btn = go.AddComponent<Button>();
-        btn.onClick.AddListener(() => RemoveFromDeck(card));
+        var draggable = go.AddComponent<DraggableCardUI>();
+        draggable.cardData = card;
+        draggable.isDeckItem = true;
+        draggable.uiRef = this;
         deckItems.Add(go);
     }
 
@@ -331,6 +424,7 @@ public class DeckManagementUI : MonoBehaviour
 
         var bg = go.AddComponent<Image>();
         bg.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
+        go.AddComponent<CanvasGroup>(); // For drag and drop raycast blocking
 
         var kanjiGo = new GameObject("Kanji");
         kanjiGo.transform.SetParent(go.transform, false);
@@ -339,6 +433,7 @@ public class DeckManagementUI : MonoBehaviour
         kanjiText.fontSize = 32;
         kanjiText.alignment = TextAlignmentOptions.Center;
         kanjiText.color = Color.white;
+        kanjiText.raycastTarget = false;
         if (appFont != null) kanjiText.font = appFont;
         var kanjiRect = kanjiGo.GetComponent<RectTransform>();
         kanjiRect.anchorMin = Vector2.zero;
@@ -351,24 +446,23 @@ public class DeckManagementUI : MonoBehaviour
 
     private DeckManager GetDM() => DeckManager.Instance ?? GameManager.Instance?.deckManager;
 
-    private void AddToDeck(KanjiCardData card)
+    public bool CanAddToDeck(KanjiCardData card)
     {
         var dm = GetDM();
-        if (dm == null) return;
-        int countInInventory = GameManager.Instance.inventory.Count(c => c.cardId == card.cardId);
-        int countInDeck = dm.currentDeck.Count(c => c.cardId == card.cardId);
+        return dm != null && dm.currentDeck.Count < dm.maxDeckSize;
+    }
 
-        if (countInDeck < countInInventory)
+    public void AddToDeck(KanjiCardData card)
+    {
+        if (!CanAddToDeck(card)) return;
+        var dm = GetDM();
+        if (dm != null)
         {
             if (dm.AddCardToDeck(card)) RefreshUI();
         }
-        else
-        {
-            Debug.Log("[DeckManagementUI] そのカードはこれ以上持っていません");
-        }
     }
 
-    private void RemoveFromDeck(KanjiCardData card)
+    public void RemoveFromDeck(KanjiCardData card)
     {
         GetDM()?.RemoveCardFromDeck(card);
         RefreshUI();

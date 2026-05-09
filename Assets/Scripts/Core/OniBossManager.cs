@@ -31,12 +31,11 @@ public class OniBossManager : MonoBehaviour
             countdownUIObj = new GameObject("OniCountdownText");
             countdownUIObj.transform.SetParent(battleManager.battleUI.enemyArea.transform, false);
             
-            // Set RectTransform
             RectTransform rt = countdownUIObj.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(1, 0.5f);
-            rt.anchorMax = new Vector2(1, 0.5f);
-            rt.pivot = new Vector2(0, 0.5f);
-            rt.anchoredPosition = new Vector2(50, 0); // To the right of the enemy image
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(250, 50); // 敵の横（右側）に配置
             rt.sizeDelta = new Vector2(200, 200);
 
             countdownText = countdownUIObj.AddComponent<TextMeshProUGUI>();
@@ -45,12 +44,24 @@ public class OniBossManager : MonoBehaviour
             countdownText.alignment = TextAlignmentOptions.Center;
             countdownText.enableWordWrapping = false;
             
-            // We use the same font as the existing enemy text if possible
-            if (battleManager.battleUI.enemyKanjiText != null)
+            // AppFont SDF を適用
+            TMP_FontAsset appFont = null;
+            var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            foreach (var f in fonts)
             {
-                countdownText.font = battleManager.battleUI.enemyKanjiText.font;
-                countdownText.fontSharedMaterial = battleManager.battleUI.enemyKanjiText.fontSharedMaterial;
+                if (f.name.Contains("AppFont") || f.name.Contains("SDF") || f.name.Contains("JP"))
+                {
+                    appFont = f;
+                    break;
+                }
             }
+            if (appFont != null)
+            {
+                countdownText.font = appFont;
+            }
+            
+            // 最前面に表示する
+            countdownUIObj.transform.SetAsLastSibling();
         }
     }
 
