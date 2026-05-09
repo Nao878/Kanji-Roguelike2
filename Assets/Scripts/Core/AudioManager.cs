@@ -174,15 +174,32 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 狼ボス専用BGMを次回戦闘BGM再生時に使用するよう予約
+    /// 狼ボス第1形態用：404FreezeCodeを次回戦闘BGMに強制設定
     /// </summary>
     public void SetWolfBossBGM()
     {
-        if (wolfBossBGM != null)
+        // 第1形態は404FreezeCodeを固定再生（ランダム選曲しない）
+        if (battleBGM != null)
         {
-            _nextBattleBGMOverride = wolfBossBGM;
-            _nextBattleBPMOverride = wolfBossBGM_BPM;
+            _nextBattleBGMOverride = battleBGM;
+            _nextBattleBPMOverride = battleBGM1_BPM;
         }
+    }
+
+    /// <summary>
+    /// 狼ボス第2形態移行時：LonerboyBGMにフェード切替
+    /// </summary>
+    public void SwitchToWolfBossPhase2BGM()
+    {
+        if (wolfBossBGM == null)
+        {
+            Debug.LogWarning("[AudioManager] wolfBossBGM(Loneryboy)が未設定");
+            return;
+        }
+        if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
+        _fadeCoroutine = StartCoroutine(FadeSwitchBGM(wolfBossBGM, bgmVolume));
+        CurrentBattleBPM = wolfBossBGM_BPM;
+        Debug.Log($"[AudioManager] 狼ボス第2形態BGM切替: Loneryboy BPM:{wolfBossBGM_BPM}");
     }
 
     /// <summary>

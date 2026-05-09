@@ -763,4 +763,67 @@ public class BattleManager : MonoBehaviour
             Debug.LogWarning("[BattleManager] 敵データが設定されていません");
         }
     }
+
+    /// <summary>
+    /// 逃走処理：カード1枚永久削除して戦闘離脱
+    /// </summary>
+    public void FleeFromBattle()
+    {
+        if (battleState != BattleState.PlayerTurn) return;
+
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        // カード1枚をロスト（手札＋山札＋捨て札から選ぶ）
+        var allCards = new System.Collections.Generic.List<KanjiCardData>();
+        allCards.AddRange(gm.hand);
+        allCards.AddRange(gm.drawPile);
+        allCards.AddRange(gm.discardPile);
+
+        string lostCardName = "なし";
+        if (allCards.Count > 0)
+        {
+            int idx = Random.Range(0, allCards.Count);
+            var lostCard = allCards[idx];
+            lostCardName = lostCard.kanji;
+
+            // 全リストから削除
+            gm.hand.Remove(lostCard);
+            gm.drawPile.Remove(lostCard);
+            gm.discardPile.Remove(lostCard);
+            gm.inventory.Remove(lostCard);
+            if (gm.deckManager != null)
+                gm.deckManager.currentDeck.Remove(lostCard);
+
+            AddBattleLog($"<color=#FF6666><b>逃走のコスト！『{lostCard.kanji}』が永久に失われた…</b></color>");
+            Debug.Log($"[BattleManager] 逃走カードロスト: {lostCard.kanji}");
+        }
+
+        battleState = BattleState.Won; // 戦闘終了扱い
+
+        // BPM波紋エフェクト停止
+        if (bpmRipple != null) bpmRipple.SetActive(false);
+
+        // BGMフェードしてフィールドBGMへ
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayFieldBGM();
+
+        // ボス戦からの逃走：シンボルは残す（OnBattleLostで処理）
+        bool isBoss = currentEnemyData != null &&
+            (currentEnemyData.enemyType == EnemyType.Boss || currentEnemyData.isWolfBoss);
+
+        if (gm.fieldManager != null)
+        {
+            if (isBoss)
+            {
+                gm.fieldManager.OnBattleLost();
+            }
+            else
+            {
+                gm.fieldManager.OnBattleWon();
+            }
+        }
+
+        gm.ChangeState(GameState.Field);
+        Debug.Log($"[BattleManager] 逃走成功！ カードロスト:『{lostCardName}』");
+    }
 }

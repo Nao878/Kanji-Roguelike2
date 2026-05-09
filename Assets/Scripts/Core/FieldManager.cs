@@ -28,8 +28,12 @@ public class FieldManager : MonoBehaviour
     [Header("階層システム")]
     public int currentFloor = 1;
     private int defeatedOnCurrentFloor = 0;
-    private const int OniSpawnThreshold = 5;
+    private int battleCountOnCurrentFloor = 0;
+    private const int OniSpawnThreshold = 10;
     private TextMeshProUGUI floorText;
+    private TextMeshProUGUI oniCountdownText;
+    private bool bossDefeatedOnFloor = false;
+    private bool stairsLocked = true;
 
     // プレイヤー
     private GameObject playerObject;
@@ -152,7 +156,11 @@ public class FieldManager : MonoBehaviour
         currentEncounterIndex = -1;
         currentFloor = 1;
         defeatedOnCurrentFloor = 0;
+        battleCountOnCurrentFloor = 0;
         oniIsActive = false;
+        bossDefeatedOnFloor = false;
+        stairsLocked = true;
+        if (oniCountdownText != null) { Destroy(oniCountdownText.gameObject); oniCountdownText = null; }
     }
 
     /// <summary>
@@ -388,16 +396,21 @@ public class FieldManager : MonoBehaviour
         rect.sizeDelta = new Vector2(cellSize * 0.9f, cellSize * 0.9f);
 
         var bg = stairsObject.AddComponent<Image>();
-        bg.color = new Color(0.6f, 0.5f, 0.1f, 0.9f);
+        // ロック状態なら暗いグレー、解放状態なら金色
+        bg.color = stairsLocked
+            ? new Color(0.25f, 0.25f, 0.25f, 0.9f)
+            : new Color(0.6f, 0.5f, 0.1f, 0.9f);
         bg.raycastTarget = false;
 
         var textGo = new GameObject("StairsText");
         textGo.transform.SetParent(stairsObject.transform, false);
         var text = textGo.AddComponent<TextMeshProUGUI>();
-        text.text = "▽";
+        text.text = stairsLocked ? "🔒" : "▽";
         text.fontSize = 28;
         text.alignment = TextAlignmentOptions.Center;
-        text.color = new Color(1f, 0.95f, 0.5f);
+        text.color = stairsLocked
+            ? new Color(0.5f, 0.5f, 0.5f)
+            : new Color(1f, 0.95f, 0.5f);
         text.fontStyle = FontStyles.Bold;
         text.raycastTarget = false;
         if (appFont != null) text.font = appFont;
@@ -411,10 +424,12 @@ public class FieldManager : MonoBehaviour
         var labelGo = new GameObject("StairsLabel");
         labelGo.transform.SetParent(stairsObject.transform, false);
         var labelText = labelGo.AddComponent<TextMeshProUGUI>();
-        labelText.text = $"F{currentFloor + 1}↓";
+        labelText.text = stairsLocked ? "LOCKED" : $"F{currentFloor + 1}↓";
         labelText.fontSize = 10;
         labelText.alignment = TextAlignmentOptions.Center;
-        labelText.color = new Color(1f, 0.9f, 0.3f, 0.9f);
+        labelText.color = stairsLocked
+            ? new Color(0.6f, 0.3f, 0.3f, 0.9f)
+            : new Color(1f, 0.9f, 0.3f, 0.9f);
         labelText.raycastTarget = false;
         if (appFont != null) labelText.font = appFont;
         var labelRect = labelGo.GetComponent<RectTransform>();
@@ -423,13 +438,16 @@ public class FieldManager : MonoBehaviour
         labelRect.offsetMin = Vector2.zero;
         labelRect.offsetMax = Vector2.zero;
 
-        Debug.Log($"[FieldManager] 階段を配置: {stairsGridPos}");
+        Debug.Log($"[FieldManager] 階段を配置: {stairsGridPos} locked={stairsLocked}");
     }
 
     private void AdvanceFloor()
     {
         currentFloor++;
         defeatedOnCurrentFloor = 0;
+        battleCountOnCurrentFloor = 0;
+        bossDefeatedOnFloor = false;
+        stairsLocked = true;
         Debug.Log($"[FieldManager] フロア{currentFloor}へ進む！ 敵レベルアップ");
 
         // 鬼を退場
@@ -445,6 +463,103 @@ public class FieldManager : MonoBehaviour
         {
             GameManager.Instance.fieldManager.UpdateStatusUI();
         }
+    }
+
+    /// <summary>
+    /// 階段を解放する（ボス撃破時）
+    /// </summary>
+    public void UnlockStairs()
+    {
+        if (!stairsLocked) return;
+        stairsLocked = false;
+        bossDefeatedOnFloor = true;
+        Debug.Log("[FieldManager] 階段解放！");
+
+        // 階段の見た目を更新
+        if (stairsObject != null)
+        {
+            var bg = stairsObject.GetComponent<Image>();
+            if (bg != null) bg.color = new Color(0.6f, 0.5f, 0.1f, 0.9f);
+            var stairsText = stairsObject.GetComponentInChildren<TextMeshProUGUI>();
+            if (stairsText != null)
+            {
+                stairsText.text = "▽";
+                stairsText.color = new Color(1f, 0.95f, 0.5f);
+            }
+            // ラベルも更新
+            var labels = stairsObject.GetComponentsInChildren<TextMeshProUGUI>();
+            foreach (var l in labels)
+            {
+                if (l.gameObject.name == "StairsLabel")
+                {
+                    l.text = $"F{currentFloor + 1}↓";
+                    l.color = new Color(1f, 0.9f, 0.3f, 0.9f);
+                }
+            }
+        }
+
+        // 通知UI表示
+        ShowStairsUnlockedNotification();
+    }
+
+    /// <summary>
+    /// 「次の階層への道が開かれた！」通知UIを表示
+    /// </summary>
+    private void ShowStairsUnlockedNotification()
+    {
+        if (fieldContent == null) return;
+        StartCoroutine(CoShowNotification("次の階層への道が開かれた！", new Color(1f, 0.85f, 0.1f), 2.5f));
+    }
+
+    private IEnumerator CoShowNotification(string message, Color textColor, float duration)
+    {
+        var canvas = fieldContent.GetComponentInParent<Canvas>();
+        if (canvas == null) yield break;
+
+        var notifGo = new GameObject("Notification");
+        notifGo.transform.SetParent(canvas.transform, false);
+        var notifRect = notifGo.AddComponent<RectTransform>();
+        notifRect.anchorMin = new Vector2(0.1f, 0.4f);
+        notifRect.anchorMax = new Vector2(0.9f, 0.6f);
+        notifRect.offsetMin = Vector2.zero;
+        notifRect.offsetMax = Vector2.zero;
+
+        var bg = notifGo.AddComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.85f);
+        bg.raycastTarget = false;
+
+        var textGo = new GameObject("NotifText");
+        textGo.transform.SetParent(notifGo.transform, false);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.text = message;
+        tmp.fontSize = 28;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = textColor;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.raycastTarget = false;
+        if (appFont != null) tmp.font = appFont;
+        var tmpRect = textGo.GetComponent<RectTransform>();
+        tmpRect.anchorMin = Vector2.zero;
+        tmpRect.anchorMax = Vector2.one;
+        tmpRect.offsetMin = Vector2.zero;
+        tmpRect.offsetMax = Vector2.zero;
+
+        var outline = textGo.AddComponent<Outline>();
+        outline.effectColor = new Color(0.3f, 0.2f, 0f, 0.9f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        yield return new WaitForSeconds(duration);
+
+        // フェードアウト
+        float t = 0f;
+        var cg = notifGo.AddComponent<CanvasGroup>();
+        while (t < 0.5f)
+        {
+            t += Time.deltaTime;
+            cg.alpha = 1f - (t / 0.5f);
+            yield return null;
+        }
+        Destroy(notifGo);
     }
 
     // ============================================
@@ -628,6 +743,12 @@ public class FieldManager : MonoBehaviour
         // 階段チェック
         if (playerGridPos == stairsGridPos)
         {
+            if (stairsLocked)
+            {
+                Debug.Log("[FieldManager] 階段はロックされている！ボスを倒せ！");
+                StartCoroutine(CoShowNotification("ボスを倒さないと先に進めない！", new Color(1f, 0.3f, 0.3f), 1.5f));
+                return true;
+            }
             AdvanceFloor();
             return true;
         }
@@ -687,16 +808,25 @@ public class FieldManager : MonoBehaviour
             Debug.Log($"[FieldManager] 敵撃破: {enemy.enemyData.displayKanji}");
 
             defeatedOnCurrentFloor++;
-            Debug.Log($"[FieldManager] 今フロア撃破数: {defeatedOnCurrentFloor}/{OniSpawnThreshold}");
 
-            // 鬼スポーン判定
-            if (defeatedOnCurrentFloor >= OniSpawnThreshold && !oniIsActive)
+            // ボス撃破チェック → 階段解放
+            if (enemy.enemyData.enemyType == EnemyType.Boss || enemy.enemyData.isWolfBoss)
             {
-                Debug.Log("[FieldManager] 鬼スポーン条件達成！");
-                TrySpawnOni();
+                UnlockStairs();
             }
         }
         currentEncounterIndex = -1;
+
+        // 戦闘回数をインクリメント（鬼カウントダウン用）
+        battleCountOnCurrentFloor++;
+        Debug.Log($"[FieldManager] 今フロア戦闘回数: {battleCountOnCurrentFloor}/{OniSpawnThreshold}");
+
+        // 鬼スポーン判定（戦闘回数ベース）
+        if (battleCountOnCurrentFloor >= OniSpawnThreshold && !oniIsActive)
+        {
+            Debug.Log("[FieldManager] 鬼スポーン条件達成（戦闘10回）！");
+            TrySpawnOni();
+        }
 
         UpdateStatusUI();
 
@@ -709,6 +839,23 @@ public class FieldManager : MonoBehaviour
         {
             Debug.Log("[FieldManager] 全敵撃破！ フィールドクリア！");
         }
+    }
+
+    /// <summary>
+    /// 戦闘敗北（逃走含む）：敵シンボルを残す
+    /// </summary>
+    public void OnBattleLost()
+    {
+        // ボス敵のシンボルは消さない（逃走時）
+        currentEncounterIndex = -1;
+
+        // 逃走も戦闘回数としてカウント
+        battleCountOnCurrentFloor++;
+        if (battleCountOnCurrentFloor >= OniSpawnThreshold && !oniIsActive)
+        {
+            TrySpawnOni();
+        }
+        UpdateStatusUI();
     }
 
     /// <summary>
@@ -747,7 +894,52 @@ public class FieldManager : MonoBehaviour
             outline.effectDistance = new Vector2(1.5f, -1.5f);
         }
         if (floorText != null)
-            floorText.text = $"F{currentFloor}　鬼:{defeatedOnCurrentFloor}/{OniSpawnThreshold}";
+            floorText.text = $"F{currentFloor}";
+
+        // 鬼出現カウントダウンUI
+        if (oniCountdownText == null && fieldContent != null)
+        {
+            var cdGo = new GameObject("OniCountdownText");
+            cdGo.transform.SetParent(fieldContent.parent, false);
+            var cdRect = cdGo.AddComponent<RectTransform>();
+            cdRect.anchorMin = new Vector2(1f, 1f);
+            cdRect.anchorMax = new Vector2(1f, 1f);
+            cdRect.pivot = new Vector2(1f, 1f);
+            cdRect.anchoredPosition = new Vector2(-10f, -65f);
+            cdRect.sizeDelta = new Vector2(280f, 30f);
+            oniCountdownText = cdGo.AddComponent<TextMeshProUGUI>();
+            oniCountdownText.fontSize = 16;
+            oniCountdownText.fontStyle = FontStyles.Bold;
+            oniCountdownText.alignment = TextAlignmentOptions.Right;
+            if (appFont != null) oniCountdownText.font = appFont;
+            var cdOutline = cdGo.AddComponent<Outline>();
+            cdOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+            cdOutline.effectDistance = new Vector2(1.5f, -1.5f);
+        }
+        if (oniCountdownText != null)
+        {
+            if (oniIsActive)
+            {
+                oniCountdownText.text = "⚠ 鬼が追跡中！";
+                oniCountdownText.color = new Color(1f, 0.1f, 0.1f);
+            }
+            else
+            {
+                int remaining = OniSpawnThreshold - battleCountOnCurrentFloor;
+                if (remaining <= 0)
+                {
+                    oniCountdownText.text = "";
+                }
+                else
+                {
+                    oniCountdownText.text = $"鬼出現まであと {remaining} 戦";
+                    // 残り5戦以下で赤く警告
+                    oniCountdownText.color = remaining <= 5
+                        ? new Color(1f, 0.2f, 0.2f)
+                        : new Color(0.9f, 0.8f, 0.4f);
+                }
+            }
+        }
     }
 
     /// <summary>

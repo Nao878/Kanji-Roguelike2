@@ -140,6 +140,18 @@ public class WolfBossManager : MonoBehaviour
         _bm.AddBattleLog("<color=#FF0000><size=120%><b>「君となら本気で戦えそうだ」</b></size></color>");
         Debug.Log($"[WolfBossManager] 第二形態移行！ HP={phase2HP}");
 
+        // 第2形態専用BGMに切替（404FreezeCode → Loneryboy）
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.SwitchToWolfBossPhase2BGM();
+        }
+
+        // BPM波紋エフェクトを新BGMに同期
+        if (_bm.bpmRipple != null && AudioManager.Instance != null)
+        {
+            _bm.bpmRipple.SetBPM(AudioManager.Instance.CurrentBattleBPM);
+        }
+
         // 演出
         if (VFXManager.Instance != null && _battleUI != null)
         {

@@ -62,6 +62,9 @@ public class BattleUI : MonoBehaviour
         if (drawCardButton != null)
             drawCardButton.onClick.AddListener(OnDrawCardClicked);
 
+        // 「逃げる」ボタンを動的生成
+        CreateFleeButton();
+
         if (playerHPBar == null && playerHPText != null)
             playerHPBar = CreateHPBar(playerHPText.transform, false);
         if (enemyHPBar == null && enemyHPText != null)
@@ -522,6 +525,91 @@ public class BattleUI : MonoBehaviour
         {
             GameManager.Instance.ChangeState(GameState.Fusion);
         }
+    }
+
+    /// <summary>
+    /// 「逃げる」ボタンを動的生成（ターン終了ボタンの下に配置）
+    /// </summary>
+    private void CreateFleeButton()
+    {
+        Transform parent = endTurnButton?.transform.parent ?? transform;
+
+        var go = new GameObject("FleeButton");
+        go.transform.SetParent(parent, false);
+        var rect = go.AddComponent<RectTransform>();
+
+        if (drawCardButton != null)
+        {
+            var src = drawCardButton.GetComponent<RectTransform>();
+            float anchorHeight = src.anchorMax.y - src.anchorMin.y;
+            float margin = 0.02f;
+            // ドローボタンの**上**に配置
+            rect.anchorMin = new Vector2(src.anchorMin.x, src.anchorMax.y + margin);
+            rect.anchorMax = new Vector2(src.anchorMax.x, src.anchorMax.y + margin + anchorHeight);
+            rect.sizeDelta = src.sizeDelta;
+            rect.anchoredPosition = Vector2.zero;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        else if (endTurnButton != null)
+        {
+            var src = endTurnButton.GetComponent<RectTransform>();
+            float anchorHeight = src.anchorMax.y - src.anchorMin.y;
+            float margin = 0.02f;
+            // ドローがない場合はターン終了の**上**に配置
+            rect.anchorMin = new Vector2(src.anchorMin.x, src.anchorMax.y + margin);
+            rect.anchorMax = new Vector2(src.anchorMax.x, src.anchorMax.y + margin + anchorHeight);
+            rect.sizeDelta = src.sizeDelta;
+            rect.anchoredPosition = Vector2.zero;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(120f, 40f);
+            rect.anchoredPosition = new Vector2(60f, 20f);
+        }
+
+        // ダークレッド
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.45f, 0.12f, 0.12f, 0.92f);
+
+        var btn = go.AddComponent<Button>();
+        var colors = btn.colors;
+        colors.normalColor      = img.color;
+        colors.highlightedColor = new Color(0.6f, 0.15f, 0.15f, 1f);
+        colors.pressedColor     = new Color(0.3f, 0.08f, 0.08f, 1f);
+        colors.disabledColor    = new Color(0.25f, 0.1f, 0.1f, 0.5f);
+        btn.colors = colors;
+
+        var textGo = new GameObject("Label");
+        textGo.transform.SetParent(go.transform, false);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.text = "逃げる\n(カード1枚ロスト)";
+        tmp.fontSize = 11f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = new Color(1f, 0.7f, 0.7f);
+        tmp.raycastTarget = false;
+        if (appFont != null) tmp.font = appFont;
+        var tmpRect = textGo.GetComponent<RectTransform>();
+        tmpRect.anchorMin = Vector2.zero;
+        tmpRect.anchorMax = Vector2.one;
+        tmpRect.offsetMin = Vector2.zero;
+        tmpRect.offsetMax = Vector2.zero;
+
+        btn.onClick.AddListener(OnFleeClicked);
+    }
+
+    /// <summary>
+    /// 逃げるボタン押下
+    /// </summary>
+    private void OnFleeClicked()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.battleManager == null) return;
+        gm.battleManager.FleeFromBattle();
     }
 
     /// <summary>
