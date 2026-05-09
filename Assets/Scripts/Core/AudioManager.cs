@@ -79,7 +79,48 @@ public class AudioManager : MonoBehaviour
                 { appFont = f; break; }
             }
         }
+
+        // BGMクリップがインスペクタ未設定の場合、動的に読み込む
+        LoadBGMClipsIfMissing();
+
         CreateSettingsUI();
+    }
+
+    /// <summary>
+    /// BGMクリップがnullの場合、Assets/Audiosフォルダから動的に探す
+    /// </summary>
+    private void LoadBGMClipsIfMissing()
+    {
+        if (battleBGM == null || battleBGM2 == null || wolfBossBGM == null)
+        {
+            // UnityEditorのみ使用可能なAssetDatabase以外のアプローチ
+            // Resources以外のフォルダの場合、シーン内のAudioSourceやScriptableObjectから参照を取得
+            var allClips = Resources.FindObjectsOfTypeAll<AudioClip>();
+            foreach (var clip in allClips)
+            {
+                if (clip == null) continue;
+                string clipName = clip.name.ToLower();
+
+                if (battleBGM == null && clipName.Contains("404freezecode"))
+                {
+                    battleBGM = clip;
+                    Debug.Log($"[AudioManager] battleBGMを自動設定: {clip.name}");
+                }
+                else if (battleBGM2 == null && clipName.Contains("memento_loop"))
+                {
+                    battleBGM2 = clip;
+                    Debug.Log($"[AudioManager] battleBGM2を自動設定: {clip.name}");
+                }
+                else if (wolfBossBGM == null && clipName.Contains("loneryboy"))
+                {
+                    wolfBossBGM = clip;
+                    Debug.Log($"[AudioManager] wolfBossBGMを自動設定: {clip.name}");
+                }
+            }
+
+            if (battleBGM == null) Debug.LogWarning("[AudioManager] battleBGM（404FreezeCode）が見つかりません");
+            if (battleBGM2 == null) Debug.LogWarning("[AudioManager] battleBGM2（memento_loop）が見つかりません");
+        }
     }
 
     // ─────────────────────────────────────────────

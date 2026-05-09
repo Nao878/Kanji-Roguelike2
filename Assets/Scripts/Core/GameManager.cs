@@ -238,6 +238,9 @@ public class GameManager : MonoBehaviour
         // 合成レシピDictionaryを初期化
         InitializeFusionRecipes();
 
+        // 【強制パッチ】全カードのコスト一律1 & Draw系カードの効果値を2に引き上げ
+        EnforceCardBalancePatches();
+
         // 初期インベントリを図鑑に登録
         if (EncyclopediaManager.Instance != null && inventory != null)
         {
@@ -588,6 +591,45 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[GameManager] 合成レシピ初期化完了: 2枚:{fusionRecipeDict.Count} 3枚:{fusionRecipeDict3.Count} カード:{allCardsDict.Count}");
     }
 
+    /// <summary>
+    /// 全カードのコストを一律1に強制、Draw系カードのeffectValueを2以上に引き上げ
+    /// </summary>
+    private void EnforceCardBalancePatches()
+    {
+        int costPatched = 0;
+        int drawPatched = 0;
+
+        foreach (var card in allCardsDict.Values)
+        {
+            if (card == null) continue;
+
+            // 全カードのコストを強制的に1に
+            if (card.cost != 1)
+            {
+                card.cost = 1;
+                costPatched++;
+            }
+
+            // Draw系カードの効果値を最低2に引き上げ
+            if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
+            {
+                card.effectValue = 2;
+                drawPatched++;
+            }
+        }
+
+        // インベントリ内のカードにも適用
+        foreach (var card in inventory)
+        {
+            if (card == null) continue;
+            if (card.cost != 1) card.cost = 1;
+            if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
+                card.effectValue = 2;
+        }
+
+        if (costPatched > 0 || drawPatched > 0)
+            Debug.Log($"[GameManager] カードバランスパッチ適用: コスト修正{costPatched}枚, Drawバフ{drawPatched}枚");
+    }
     /// <summary>
     /// 2枚合成結果を高速検索（最初の1件、見つからなければ-1）
     /// </summary>

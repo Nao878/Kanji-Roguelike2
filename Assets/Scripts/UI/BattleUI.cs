@@ -497,7 +497,7 @@ public class BattleUI : MonoBehaviour
         if (gm == null || gm.hand.Count >= gm.initialHandSize) return;
 
         // APが1以上（消費AP以上）であることを正しく判定する
-        if (gm.playerMana <= 0)
+        if (gm.playerMana < 1)
         {
             // AP不足フィードバック
             if (VFXManager.Instance != null && playerManaText != null)
@@ -506,6 +506,8 @@ public class BattleUI : MonoBehaviour
         }
 
         gm.playerMana -= 1;
+        // AP減少直後にUI即更新（表示ズレ防止）
+        UpdateStatusUI();
         gm.DrawFromDeck(1);
         UpdateHandUI();
         UpdateStatusUI();

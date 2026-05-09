@@ -383,6 +383,13 @@ public class BattleManager : MonoBehaviour
                     if (!isMirrorClash && card.componentCount <= (currentEnemyData != null ? currentEnemyData.componentCount : 999))
                         VFXManager.Instance.PlayAttackHitVFX(battleUI.enemyKanjiText.transform.position);
                 }
+                // 血カードの自傷ダメージ
+                if (wolfBossManager != null && wolfBossManager.IsBloodCard(card))
+                {
+                    wolfBossManager.ApplyBloodSelfDamage();
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
+                        VFXManager.Instance.PlayDamageEffect(battleUI.playerHPText.gameObject, wolfBossManager.bloodDamage, true);
+                }
                 break;
 
             case CardEffectType.Defense:
@@ -508,7 +515,7 @@ public class BattleManager : MonoBehaviour
 
         if (battleState == BattleState.EnemyTurn)
         {
-            // 狼ボス専用行動（手札破壊・HP激増チェック）
+            // 狼ボス専用行動（手札破壊・血カード生成）
             if (currentEnemyData.isWolfBoss && wolfBossManager != null)
             {
                 wolfBossManager.OnWolfTurnAction(FinishEnemyTurn);
@@ -564,6 +571,16 @@ public class BattleManager : MonoBehaviour
     {
         if (enemyCurrentHP <= 0)
         {
+            // 狼ボス第二形態チェック
+            if (currentEnemyData != null && currentEnemyData.isWolfBoss && wolfBossManager != null)
+            {
+                if (wolfBossManager.CheckPhase2Transition())
+                {
+                    // 第二形態に移行したので戦闘続行
+                    return;
+                }
+            }
+
             battleState = BattleState.Won;
             int goldReward = 15;
             if (GameManager.Instance != null)

@@ -207,8 +207,8 @@ public class CardController : MonoBehaviour,
             return true;
         }
 
-        // 通常のカード使用（合体カードはコスト一律1）
-        int actualCost = cardData.isFusionResult ? 1 : cardData.cost;
+        // 通常のカード使用（全カード消費AP一律1）
+        int actualCost = 1;
         if (gm.playerMana < actualCost)
         {
             Debug.Log($"[CardController] マナ不足！ 必要:{actualCost} 現在:{gm.playerMana}");
@@ -742,7 +742,7 @@ public class CardController : MonoBehaviour,
             var gmInner = GameManager.Instance;
             if (gmInner == null || selfRef == null || selfRef.cardData == null) return;
 
-            int cost = selfRef.cardData.isFusionResult ? 1 : selfRef.cardData.cost;
+            int cost = 1; // 全カード消費AP一律1
             if (gmInner.playerMana < cost)
             {
                 var buiInner = gmInner.battleManager?.battleUI;

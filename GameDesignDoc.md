@@ -56,7 +56,7 @@
 | Heal | HP回復（オーバーヒール対応） |
 | Buff | 攻撃バフ付与 |
 | Special | ダメージ + 60%吸血回復 |
-| Draw | カードドロー |
+| Draw | カード2枚ドロー（AP消費ドローの1枚より高効率） |
 | AttackAll | 全体攻撃 |
 | Stun | 敵スタン（次ターン行動不能） |
 
@@ -178,9 +178,22 @@
 
 ## BGM システム（AudioManager）
 - `AudioManager` シングルトンが GameManager オブジェクトに付属し、BGMを一元管理する
-- **バトルBGM**: `404FreezeCode.mp3` — 戦闘開始時（`BattleManager.StartBattle()`）に再生開始
+- **通常バトルBGM**: `404FreezeCode.mp3` と `memento_loop.ogg` からランダムで選曲
+  - 各曲のBPMに応じてBPM同期変数を自動切り替え（404FreezeCode: 152BPM, memento_loop: 120BPM）
+- **狼ボス専用BGM**: `Loneryboy.mp3` — 狼ボス戦闘時に自動的に切り替え
 - **フィールドBGM**: フィールド復帰時（`ReturnToField()`）に切り替え。fieldBGMが未設定の場合はBGM停止
 - 音量は `bgmVolume`（初期: 0.7）でコントロール
+- BGMクリップがインスペクタ未設定の場合、`Resources.FindObjectsOfTypeAll`で自動探索
+
+---
+
+## 狼ボスシステム（WolfBossManager）
+- **第一形態**: 初期HPはプレイヤーの現在HPと同値に設定
+- **第二形態への移行**: 第一形態HP0時、HPを99に設定し「君となら本気で戦えそうだ」ダイアログを表示
+- **戦闘中回復なし**: 狼ボスはHPを回復しない
+- **特殊カード「血」**: 3ターン毎にプレイヤーの手札のランダム1枚が「血」カードに変化
+  - 血カード効果: 敵に3ダメージ + 自分にも3ダメージ（自傷）
+- **手札破壊**: 一定確率でプレイヤーの手札を「404 ERROR」（使用不可）に変化
 
 ---
 
