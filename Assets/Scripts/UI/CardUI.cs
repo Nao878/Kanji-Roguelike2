@@ -34,7 +34,7 @@ public class CardUI : MonoBehaviour
         if (data == null) return;
 
         if (kanjiText != null) kanjiText.text = data.kanji;
-        if (costText != null) costText.text = data.cost.ToString();
+        if (costText != null) costText.gameObject.SetActive(false); // AP消費量は全カード1に統一
         if (effectText != null) effectText.text = data.effectValue.ToString();
         if (descriptionText != null) descriptionText.text = data.description;
 

@@ -15,10 +15,27 @@ public class AudioManager : MonoBehaviour
     public AudioSource bgmSource;
 
     [Header("BGMクリップ")]
-    [Tooltip("戦闘BGM（404FreezeCode.mp3）")]
+    [Tooltip("戦闘BGM1（404FreezeCode）")]
     public AudioClip battleBGM;
+    [Tooltip("戦闘BGM2（memento_loop）")]
+    public AudioClip battleBGM2;
+    [Tooltip("狼ボス専用BGM（Loneryboy）")]
+    public AudioClip wolfBossBGM;
     [Tooltip("フィールドBGM")]
     public AudioClip fieldBGM;
+
+    [Header("BPM設定")]
+    [Tooltip("battleBGM（404FreezeCode）のBPM")]
+    public float battleBGM1_BPM = 152f;
+    [Tooltip("battleBGM2（memento_loop）のBPM")]
+    public float battleBGM2_BPM = 120f;
+    [Tooltip("狼ボスBGM（Loneryboy）のBPM")]
+    public float wolfBossBGM_BPM = 140f;
+
+    public float CurrentBattleBPM { get; private set; } = 152f;
+
+    private AudioClip _nextBattleBGMOverride = null;
+    private float _nextBattleBPMOverride = 0f;
 
     [Header("音量")]
     [Range(0f, 1f)] public float bgmVolume = 0.7f;
@@ -70,19 +87,41 @@ public class AudioManager : MonoBehaviour
     // ─────────────────────────────────────────────
 
     /// <summary>
-    /// 戦闘BGMを即座に再生（トランジション演出と同期させるため即時）
+    /// 戦闘BGMを即座に再生。オーバーライドがあればそれを使用、なければBGM1/2からランダム
     /// </summary>
     public void PlayBattleBGMImmediate()
     {
-        if (battleBGM == null) { Debug.LogWarning("[AudioManager] battleBGMが未設定"); return; }
-        if (bgmSource.clip == battleBGM && bgmSource.isPlaying) return;
+        AudioClip selected;
+        float bpm;
+
+        if (_nextBattleBGMOverride != null)
+        {
+            selected = _nextBattleBGMOverride;
+            bpm = _nextBattleBPMOverride > 0f ? _nextBattleBPMOverride : battleBGM1_BPM;
+            _nextBattleBGMOverride = null;
+            _nextBattleBPMOverride = 0f;
+        }
+        else if (battleBGM2 != null && Random.value < 0.5f)
+        {
+            selected = battleBGM2;
+            bpm = battleBGM2_BPM;
+        }
+        else
+        {
+            selected = battleBGM;
+            bpm = battleBGM1_BPM;
+        }
+
+        if (selected == null) { Debug.LogWarning("[AudioManager] battleBGMが未設定"); return; }
+        if (bgmSource.clip == selected && bgmSource.isPlaying) return;
 
         if (_fadeCoroutine != null) StopCoroutine(_fadeCoroutine);
         bgmSource.Stop();
-        bgmSource.clip = battleBGM;
+        bgmSource.clip = selected;
         bgmSource.volume = bgmVolume;
         bgmSource.Play();
-        Debug.Log("[AudioManager] バトルBGM即時再生: " + battleBGM.name);
+        CurrentBattleBPM = bpm;
+        Debug.Log($"[AudioManager] バトルBGM即時再生: {selected.name} BPM:{bpm}");
     }
 
     /// <summary>
@@ -91,6 +130,18 @@ public class AudioManager : MonoBehaviour
     public void PlayBattleBGM()
     {
         PlayBattleBGMImmediate();
+    }
+
+    /// <summary>
+    /// 狼ボス専用BGMを次回戦闘BGM再生時に使用するよう予約
+    /// </summary>
+    public void SetWolfBossBGM()
+    {
+        if (wolfBossBGM != null)
+        {
+            _nextBattleBGMOverride = wolfBossBGM;
+            _nextBattleBPMOverride = wolfBossBGM_BPM;
+        }
     }
 
     /// <summary>

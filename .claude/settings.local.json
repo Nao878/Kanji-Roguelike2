@@ -24,7 +24,10 @@
       "mcp__UnityMCP__manage_components",
       "mcp__UnityMCP__manage_scene",
       "PowerShell(Get-Content *)",
-      "PowerShell(Get-Item *)"
+      "PowerShell(Get-Item *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\yanao\\\\Github2\\\\Kanji-Roguelike2\\\\Assets\\\\Scripts\" -Recurse -Filter \"*.cs\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
     ]
   }
 }

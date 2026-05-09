@@ -66,6 +66,17 @@ public class BPMRippleEffect : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// BPMを動的に変更（曲切り替え時に呼ぶ）
+    /// </summary>
+    public void SetBPM(float newBPM)
+    {
+        bpm = newBPM;
+        _beatInterval = 60.0 / bpm;
+        _nextBeatDspTime = AudioSettings.dspTime + _beatInterval;
+        Debug.Log($"[BPMRippleEffect] BPM変更: {newBPM}");
+    }
+
     private void SpawnRipple(Color color)
     {
         if (targetCanvas == null)

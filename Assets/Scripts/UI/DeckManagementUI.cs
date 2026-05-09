@@ -30,7 +30,26 @@ public class DeckManagementUI : MonoBehaviour
 
     private void Awake()
     {
+        AutoDetectFont();
         BuildUIIfNeeded();
+    }
+
+    private void AutoDetectFont()
+    {
+        if (appFont != null) return;
+        var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+        foreach (var f in fonts)
+        {
+            if (f.name.Contains("AppFont") || f.name.Contains("SDF") || f.name.Contains("JP"))
+            { appFont = f; break; }
+        }
+    }
+
+    private void ApplyFontToAll()
+    {
+        if (appFont == null) return;
+        foreach (var tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+            tmp.font = appFont;
     }
 
     /// <summary>
@@ -205,7 +224,9 @@ public class DeckManagementUI : MonoBehaviour
 
     private void OnEnable()
     {
+        AutoDetectFont();
         RefreshUI();
+        ApplyFontToAll();
     }
 
     public void RefreshUI()

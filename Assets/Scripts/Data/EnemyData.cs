@@ -29,6 +29,10 @@ public class EnemyData : ScriptableObject
     [Header("ドロップ")]
     [Tooltip("撃破時にドロップする漢字カード")]
     public KanjiCardData dropCard;
+
+    [Header("特殊ボスフラグ")]
+    [Tooltip("狼ボス専用行動（手札破壊・HP激増）を有効にする")]
+    public bool isWolfBoss = false;
 }
 
 public enum EnemyType

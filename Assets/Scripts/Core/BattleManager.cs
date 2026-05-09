@@ -76,6 +76,7 @@ public class BattleManager : MonoBehaviour
         elementChainCount = 0;
         currentComboCount = 0;
         lastComboKanji = "";
+        wolfBossManager = GetComponent<WolfBossManager>();
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
@@ -101,6 +102,8 @@ public class BattleManager : MonoBehaviour
     [Header("BPM波紋エフェクト")]
     public BPMRippleEffect bpmRipple;
 
+    private WolfBossManager wolfBossManager;
+
     /// <summary>
     /// 戦闘開始（3秒間の開戦トランジション演出を経て本戦闘を開始）
     /// </summary>
@@ -124,6 +127,14 @@ public class BattleManager : MonoBehaviour
         lastComboKanji = "";
 
         Debug.Log($"[BattleManager] 開戦演出開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
+
+        // 狼ボス戦闘の場合は専用BGMを予約しWolfBossManagerを初期化
+        if (enemy.isWolfBoss)
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.SetWolfBossBGM();
+            if (wolfBossManager == null) wolfBossManager = gameObject.AddComponent<WolfBossManager>();
+            wolfBossManager.InitForWolfBoss();
+        }
 
         // 3秒間の開戦トランジション演出（BGMはTransitionManager内で再生開始）
         if (BattleTransitionManager.Instance != null)
@@ -205,6 +216,9 @@ public class BattleManager : MonoBehaviour
             if (canvas != null) bpmRipple.targetCanvas = canvas;
         }
 
+        // 再生中の曲に合わせてBPMを同期
+        if (AudioManager.Instance != null)
+            bpmRipple.SetBPM(AudioManager.Instance.CurrentBattleBPM);
         bpmRipple.SetActive(true);
         Debug.Log("[BattleManager] BPM波紋エフェクト起動");
     }
@@ -468,7 +482,7 @@ public class BattleManager : MonoBehaviour
         {
             AddBattleLog($"敵はスタンしていて動けない！");
             enemyIsStunned = false; // スタン解除
-            
+
             // プレイヤーのターンへ戻る
             Invoke(nameof(ReturnToPlayerTurn), 1.0f);
             return;
@@ -486,7 +500,6 @@ public class BattleManager : MonoBehaviour
 
         if (battleUI != null && VFXManager.Instance != null)
         {
-            // プレイヤーへのダメージ演出（HPテキストを揺らす）
             GameObject target = battleUI.playerHPText != null ? battleUI.playerHPText.gameObject : battleUI.gameObject;
             VFXManager.Instance.PlayDamageEffect(target, damage, true);
         }
@@ -495,24 +508,30 @@ public class BattleManager : MonoBehaviour
 
         if (battleState == BattleState.EnemyTurn)
         {
-            // 戦闘継続 → プレイヤーターンへ
-            battleState = BattleState.PlayerTurn;
-            isPlayerTurn = true;
-
-            if (GameManager.Instance != null)
+            // 狼ボス専用行動（手札破壊・HP激増チェック）
+            if (currentEnemyData.isWolfBoss && wolfBossManager != null)
             {
-                GameManager.Instance.StartPlayerTurn();
+                wolfBossManager.OnWolfTurnAction(FinishEnemyTurn);
+            }
+            else
+            {
+                FinishEnemyTurn();
             }
         }
-
-        UpdateUI();
-
-        // BattleUI更新
-        if (battleUI != null)
+        else
         {
-            battleUI.UpdateHandUI();
-            battleUI.UpdateStatusUI();
+            UpdateUI();
+            if (battleUI != null) { battleUI.UpdateHandUI(); battleUI.UpdateStatusUI(); }
         }
+    }
+
+    private void FinishEnemyTurn()
+    {
+        battleState = BattleState.PlayerTurn;
+        isPlayerTurn = true;
+        if (GameManager.Instance != null) GameManager.Instance.StartPlayerTurn();
+        UpdateUI();
+        if (battleUI != null) { battleUI.UpdateHandUI(); battleUI.UpdateStatusUI(); }
     }
 
     private void ReturnToPlayerTurn()
@@ -628,7 +647,7 @@ public class BattleManager : MonoBehaviour
     /// <summary>
     /// バトルログにテキストを追加
     /// </summary>
-    private void AddBattleLog(string message)
+    public void AddBattleLog(string message)
     {
         if (battleLogText != null)
         {

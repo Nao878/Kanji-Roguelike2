@@ -108,6 +108,33 @@ public class GameManager : MonoBehaviour
     {
         InitializeGame();
         WireHelpButton();
+        RemoveHelpPanelCloseButton();
+    }
+
+    private void RemoveHelpPanelCloseButton()
+    {
+        if (helpPanel == null) return;
+        var buttons = helpPanel.GetComponentsInChildren<UnityEngine.UI.Button>(true);
+        foreach (var btn in buttons)
+        {
+            bool isClose = false;
+            var tmp = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            if (tmp != null)
+            {
+                string t = tmp.text.Trim();
+                if (t == "×" || t == "✕" || t == "x" || t == "X" || t == "✗" || t == "close")
+                    isClose = true;
+            }
+            var img = btn.GetComponent<Image>();
+            if (img != null && img.color.r > 0.6f && img.color.g < 0.4f && img.color.b < 0.4f)
+                isClose = true;
+            if (isClose)
+            {
+                Debug.Log("[GameManager] HelpPanelの赤いバツボタンを削除しました");
+                Destroy(btn.gameObject);
+                break;
+            }
+        }
     }
 
     private void Update()

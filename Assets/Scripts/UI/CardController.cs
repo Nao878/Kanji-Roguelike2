@@ -74,7 +74,7 @@ public class CardController : MonoBehaviour,
         if (data == null) return;
 
         if (kanjiText != null) kanjiText.text = data.kanji;
-        if (costText != null) costText.text = data.cost.ToString();
+        if (costText != null) costText.gameObject.SetActive(false); // AP消費量は全カード1に統一
         if (descriptionText != null) descriptionText.text = data.description;
 
         // 効果タイプに応じた背景色
@@ -285,11 +285,12 @@ public class CardController : MonoBehaviour,
             // 次のカードの出現演出を予約
             VFXManager.Instance.RegisterSpawnEffect(resultCard);
 
-            // 合体位置を事前にキャプチャ（ラムダ実行時にGameObjectが破棄済みのため）
-            Vector3 fusionCenterPos = (transform.position + targetCard.transform.position) * 0.5f;
+            // 元のカードを即時非表示にしてGrandFusion演出へ切り替え
+            gameObject.SetActive(false);
+            targetCard.gameObject.SetActive(false);
 
-            // 合体演出再生
-            VFXManager.Instance.PlayFusionSequence(this, targetCard, () =>
+            // ド派手合体演出（画面中央で激突）
+            VFXManager.Instance.PlayGrandFusionSequence(cardData, targetCard.cardData, resultCard, () =>
             {
                 // データ更新：手札から素材を除去
                 gm.hand.Remove(cardData);
@@ -307,18 +308,13 @@ public class CardController : MonoBehaviour,
                 Debug.Log($"[CardController] 合体成功！AP+1（現在AP:{gm.playerMana}）");
 
                 // 「1 MORE」巨大VFX表示
-                if (VFXManager.Instance != null)
-                {
-                    VFXManager.Instance.PlayOneMoreEffect();
-                    // CFXR合体成功パーティクルエフェクト
-                    VFXManager.Instance.PlayFusionCFXR(fusionCenterPos);
-                }
+                if (VFXManager.Instance != null) VFXManager.Instance.PlayOneMoreEffect();
 
                 // 古いオブジェクト削除
                 Destroy(targetCard.gameObject);
                 Destroy(gameObject);
 
-                // UI更新（ここで新カードが生成され、Setupが呼ばれるはず）
+                // UI更新
                 onHandChanged?.Invoke();
             });
         }
