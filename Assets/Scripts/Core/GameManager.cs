@@ -398,8 +398,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public bool UseCard(KanjiCardData card)
     {
-        // 全カード消費AP一律1（仕様統一）
-        int actualCost = 1;
+        // Attack/AttackAll/Specialはコスト1、他は0に設定済
+        int actualCost = card.cost;
 
         if (playerMana < actualCost)
         {
@@ -447,6 +447,9 @@ public class GameManager : MonoBehaviour
         int actualDamage = Mathf.Max(0, damage - playerDefenseBuff);
         playerHP = Mathf.Max(0, playerHP - actualDamage);
         Debug.Log($"[GameManager] プレイヤーが{actualDamage}ダメージ受けた HP:{playerHP}");
+
+        if (AudioManager.Instance != null && actualDamage > 0)
+            AudioManager.Instance.PlaySE(AudioManager.Instance.seButton38);
 
         if (playerHP <= 0)
         {
@@ -603,10 +606,14 @@ public class GameManager : MonoBehaviour
         {
             if (card == null) continue;
 
-            // 全カードのコストを強制的に1に
-            if (card.cost != 1)
+            // 攻撃・全体攻撃・特殊攻撃はコスト1、サポート系は0
+            int targetCost = (card.effectType == CardEffectType.Attack || 
+                              card.effectType == CardEffectType.AttackAll || 
+                              card.effectType == CardEffectType.Special) ? 1 : 0;
+
+            if (card.cost != targetCost)
             {
-                card.cost = 1;
+                card.cost = targetCost;
                 costPatched++;
             }
 
@@ -622,7 +629,10 @@ public class GameManager : MonoBehaviour
         foreach (var card in inventory)
         {
             if (card == null) continue;
-            if (card.cost != 1) card.cost = 1;
+            int targetCost = (card.effectType == CardEffectType.Attack || 
+                              card.effectType == CardEffectType.AttackAll || 
+                              card.effectType == CardEffectType.Special) ? 1 : 0;
+            if (card.cost != targetCost) card.cost = targetCost;
             if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
                 card.effectValue = 2;
         }

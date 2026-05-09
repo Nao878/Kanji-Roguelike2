@@ -65,6 +65,11 @@ public class BattleUI : MonoBehaviour
         // 「逃げる」ボタンを動的生成
         CreateFleeButton();
 
+        // 各種ボタンにSE（ホバー／クリック）を追加
+        AddButtonSE(endTurnButton);
+        AddButtonSE(fusionButton);
+        AddButtonSE(drawCardButton);
+
         if (playerHPBar == null && playerHPText != null)
             playerHPBar = CreateHPBar(playerHPText.transform, false);
         if (enemyHPBar == null && enemyHPText != null)
@@ -77,6 +82,32 @@ public class BattleUI : MonoBehaviour
         AddTextOutline(enemyHPText, new Color(0.3f, 0f, 0f, 0.85f));
         AddTextOutline(enemyKanjiText, new Color(0.4f, 0f, 0f, 0.9f), 2f);
         AddTextOutline(battleLogText, new Color(0f, 0f, 0f, 0.8f));
+    }
+
+    /// <summary>
+    /// ボタンにホバー／クリック時のSEを付与
+    /// </summary>
+    private void AddButtonSE(Button btn)
+    {
+        if (btn == null) return;
+
+        // クリックSE
+        btn.onClick.AddListener(() => {
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.PlaySE(AudioManager.Instance.seButton44);
+        });
+
+        // ホバーSE
+        var trigger = btn.gameObject.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+        if (trigger == null) trigger = btn.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+
+        var entry = new UnityEngine.EventSystems.EventTrigger.Entry();
+        entry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter;
+        entry.callback.AddListener((data) => {
+            if (btn.interactable && AudioManager.Instance != null)
+                AudioManager.Instance.PlaySE(AudioManager.Instance.seButton44);
+        });
+        trigger.triggers.Add(entry);
     }
 
     /// <summary>
@@ -164,6 +195,8 @@ public class BattleUI : MonoBehaviour
         iconTmp.fontSize = 11f;
         iconTmp.color = new Color(1f, 0.9f, 0.1f);
         iconTmp.alignment = TextAlignmentOptions.Left;
+        iconTmp.overflowMode = TextOverflowModes.Overflow;
+        iconTmp.enableWordWrapping = false;
         if (appFont != null) iconTmp.font = appFont;
         iconGo.SetActive(false);
 
@@ -600,6 +633,7 @@ public class BattleUI : MonoBehaviour
         tmpRect.offsetMax = Vector2.zero;
 
         btn.onClick.AddListener(OnFleeClicked);
+        AddButtonSE(btn);
     }
 
     /// <summary>
@@ -698,7 +732,17 @@ public class BattleUI : MonoBehaviour
             playerHPBar.SetHP(gm.playerHP, gm.playerMaxHP);
             string buffText = "";
             if (gm.playerAttackBuff > 0) buffText += $"攻↑+{gm.playerAttackBuff} ";
-            if (gm.playerDefenseBuff > 0) buffText += $"防↑+{gm.playerDefenseBuff}";
+            if (gm.playerDefenseBuff > 0) buffText += $"防↑+{gm.playerDefenseBuff} ";
+            
+            if (gm.battleManager != null)
+            {
+                foreach (var effect in gm.battleManager.playerStatusEffects)
+                {
+                    if (effect.Type == StatusType.Poison) buffText += $"<color=#9932CC>[毒{effect.Duration}T]</color> ";
+                    if (effect.Type == StatusType.Regen) buffText += $"<color=#32CD32>[癒{effect.Duration}T]</color> ";
+                }
+            }
+
             playerHPBar.SetStatusIcon(buffText.Trim());
         }
 
@@ -712,7 +756,13 @@ public class BattleUI : MonoBehaviour
             if (enemyHPBar != null)
             {
                 enemyHPBar.SetHP(gm.battleManager.enemyCurrentHP, enemy.maxHP);
-                enemyHPBar.SetStatusIcon(gm.battleManager.enemyIsStunned ? "[スタン]" : "");
+                string enemyStatus = gm.battleManager.enemyIsStunned ? "<color=#FFD700>[スタン]</color> " : "";
+                foreach (var effect in gm.battleManager.enemyStatusEffects)
+                {
+                    if (effect.Type == StatusType.Poison) enemyStatus += $"<color=#9932CC>[毒{effect.Duration}T]</color> ";
+                    if (effect.Type == StatusType.Regen) enemyStatus += $"<color=#32CD32>[癒{effect.Duration}T]</color> ";
+                }
+                enemyHPBar.SetStatusIcon(enemyStatus.Trim());
             }
         }
     }

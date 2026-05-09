@@ -30,6 +30,16 @@ public class AudioManager : MonoBehaviour
     [Tooltip("フィールドBGM")]
     public AudioClip fieldBGM;
 
+    [Header("SEクリップ")]
+    [Tooltip("敵を倒した時")]
+    public AudioClip seBlow3;
+    [Tooltip("ダメージを受けた時")]
+    public AudioClip seButton38;
+    [Tooltip("UIホバー/クリック時")]
+    public AudioClip seButton44;
+    [Tooltip("メイン決定アクション")]
+    public AudioClip seButton50;
+
     public enum BossType
     {
         Wolf,
@@ -62,6 +72,9 @@ public class AudioManager : MonoBehaviour
 
     private Coroutine _fadeCoroutine;
 
+    [Header("SEソース")]
+    public AudioSource seSource;
+
     private const string PREF_BGM = "BGMVolume";
     private const string PREF_SE  = "SEVolume";
 
@@ -76,6 +89,12 @@ public class AudioManager : MonoBehaviour
         }
         bgmSource.loop = true;
         bgmSource.playOnAwake = false;
+
+        if (seSource == null)
+        {
+            seSource = gameObject.AddComponent<AudioSource>();
+        }
+        seSource.playOnAwake = false;
 
         // PlayerPrefsから音量を復元
         bgmVolume = PlayerPrefs.GetFloat(PREF_BGM, bgmVolume);
@@ -98,8 +117,43 @@ public class AudioManager : MonoBehaviour
 
         // BGMクリップがインスペクタ未設定の場合、動的に読み込む
         LoadBGMClipsIfMissing();
+        LoadSEClipsIfMissing();
 
         CreateSettingsUI();
+    }
+
+    /// <summary>
+    /// SEクリップが未設定の場合、動的に読み込む
+    /// </summary>
+    private void LoadSEClipsIfMissing()
+    {
+        var allClips = Resources.FindObjectsOfTypeAll<AudioClip>();
+        foreach (var clip in allClips)
+        {
+            if (clip == null) continue;
+            string clipName = clip.name.ToLower();
+
+            if (seBlow3 == null && clipName.Contains("blow3"))
+            {
+                seBlow3 = clip;
+                Debug.Log($"[AudioManager] seBlow3を自動設定: {clip.name}");
+            }
+            else if (seButton38 == null && clipName.Contains("button38"))
+            {
+                seButton38 = clip;
+                Debug.Log($"[AudioManager] seButton38を自動設定: {clip.name}");
+            }
+            else if (seButton44 == null && clipName.Contains("button44"))
+            {
+                seButton44 = clip;
+                Debug.Log($"[AudioManager] seButton44を自動設定: {clip.name}");
+            }
+            else if (seButton50 == null && clipName.Contains("button50"))
+            {
+                seButton50 = clip;
+                Debug.Log($"[AudioManager] seButton50を自動設定: {clip.name}");
+            }
+        }
     }
 
     /// <summary>
@@ -147,6 +201,12 @@ public class AudioManager : MonoBehaviour
     // ─────────────────────────────────────────────
     // BGM 制御
     // ─────────────────────────────────────────────
+
+    public void PlaySE(AudioClip clip)
+    {
+        if (clip == null) return;
+        seSource.PlayOneShot(clip, seVolume);
+    }
 
     /// <summary>
     /// 戦闘BGMを即座に再生。オーバーライドがあればそれを使用、なければBGM1/2からランダム

@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 /// <summary>
 /// ターン制戦闘管理
@@ -13,6 +14,9 @@ public class BattleManager : MonoBehaviour
     public bool isPlayerTurn = true;
     public bool enemyIsStunned = false; // スタンフラグ
     public BattleState battleState = BattleState.Idle;
+
+    public List<StatusEffect> playerStatusEffects = new List<StatusEffect>();
+    public List<StatusEffect> enemyStatusEffects = new List<StatusEffect>();
 
     [Header("UI参照")]
     public TextMeshProUGUI playerHPText;
@@ -97,6 +101,8 @@ public class BattleManager : MonoBehaviour
         elementChainCount = 0;
         currentComboCount = 0;
         lastComboKanji = "";
+        playerStatusEffects.Clear();
+        enemyStatusEffects.Clear();
     }
 
     [Header("BPM波紋エフェクト")]
@@ -126,6 +132,8 @@ public class BattleManager : MonoBehaviour
         elementChainCount = 0;
         currentComboCount = 0;
         lastComboKanji = "";
+        playerStatusEffects.Clear();
+        enemyStatusEffects.Clear();
 
         Debug.Log($"[BattleManager] 開戦演出開始！ 敵:{enemy.enemyName}（HP:{enemy.maxHP}）");
 
@@ -269,6 +277,32 @@ public class BattleManager : MonoBehaviour
         int attackValue = card.effectValue + card.attackModifier + (card.effectType == CardEffectType.Attack ? gm.playerAttackBuff : 0);
         int defenseValue = card.effectValue + card.defenseModifier;
 
+        // SE再生：決定アクション
+        bool isAttackType = card.effectType == CardEffectType.Attack || card.effectType == CardEffectType.AttackAll || card.effectType == CardEffectType.Special;
+        if (AudioManager.Instance != null)
+        {
+            if (isAttackType) AudioManager.Instance.PlaySE(AudioManager.Instance.seButton50);
+            else AudioManager.Instance.PlaySE(AudioManager.Instance.seButton44);
+        }
+
+        // 状態異常付与カード（例：「毒」ならPoison、「癒」ならRegen）
+        if (card.kanji == "毒" || card.kanji == "蛇" || card.kanji == "酸")
+        {
+            AddStatusEffect(false, StatusType.Poison, 2, 3);
+            AddBattleLog($"<color=#9932CC>『{card.kanji}』で敵に毒(2)を3ターン付与！</color>");
+        }
+        else if (card.kanji == "癒" || card.kanji == "薬" || card.kanji == "命")
+        {
+            AddStatusEffect(true, StatusType.Regen, 3, 3);
+            AddBattleLog($"<color=#32CD32>『{card.kanji}』で自身にリジェネ(3)を3ターン付与！</color>");
+        }
+
+        // 解毒カード
+        if (card.kanji == "清" || card.kanji == "浄" || card.kanji == "祓" || card.kanji == "解" || card.kanji == "薬")
+        {
+            CleanseDebuffs(true);
+        }
+
         // 【タスク2】漢字ブレイク：相殺 (Mirror Clash)
         bool isMirrorClash = false;
         if (card.kanji == currentEnemyData.displayKanji)
@@ -334,9 +368,6 @@ public class BattleManager : MonoBehaviour
         }
 
         // 同字連撃コンボ判定（Attack 系カードのみ）
-        bool isAttackType = card.effectType == CardEffectType.Attack ||
-                            card.effectType == CardEffectType.AttackAll ||
-                            card.effectType == CardEffectType.Special;
         if (isAttackType)
         {
             if (!string.IsNullOrEmpty(lastComboKanji) && card.kanji == lastComboKanji)
@@ -493,6 +524,14 @@ public class BattleManager : MonoBehaviour
     {
         if (currentEnemyData == null) return;
 
+        // 状態異常処理（敵）
+        ProcessStatusEffects(false);
+        if (enemyCurrentHP <= 0)
+        {
+            CheckBattleEnd();
+            return;
+        }
+
         // スタンチェック
         if (enemyIsStunned)
         {
@@ -500,7 +539,7 @@ public class BattleManager : MonoBehaviour
             enemyIsStunned = false; // スタン解除
 
             // プレイヤーのターンへ戻る
-            Invoke(nameof(ReturnToPlayerTurn), 1.0f);
+            Invoke(nameof(FinishEnemyTurn), 1.0f);
             return;
         }
 
@@ -550,15 +589,6 @@ public class BattleManager : MonoBehaviour
 
     private void FinishEnemyTurn()
     {
-        battleState = BattleState.PlayerTurn;
-        isPlayerTurn = true;
-        if (GameManager.Instance != null) GameManager.Instance.StartPlayerTurn();
-        UpdateUI();
-        if (battleUI != null) { battleUI.UpdateHandUI(); battleUI.UpdateStatusUI(); }
-    }
-
-    private void ReturnToPlayerTurn()
-    {
         // 新ターン開始でコンボリセット
         currentComboCount = 0;
         lastComboKanji = "";
@@ -568,6 +598,14 @@ public class BattleManager : MonoBehaviour
         if (GameManager.Instance != null)
         {
             GameManager.Instance.StartPlayerTurn();
+        }
+
+        // 状態異常処理（プレイヤー）
+        ProcessStatusEffects(true);
+        if (GameManager.Instance != null && GameManager.Instance.playerHP <= 0)
+        {
+            CheckBattleEnd();
+            return;
         }
 
         UpdateUI();
@@ -619,6 +657,8 @@ public class BattleManager : MonoBehaviour
             }
             AddBattleLog($"勝利！ {goldReward}G獲得！");
             Debug.Log($"[BattleManager] 戦闘勝利！ {goldReward}G獲得");
+
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySE(AudioManager.Instance.seBlow3);
 
             // CFXR敵討伐エフェクト再生後にフィールドへ戻る
             if (VFXManager.Instance != null && battleUI != null && battleUI.enemyKanjiText != null)
@@ -730,6 +770,8 @@ public class BattleManager : MonoBehaviour
                 {
                     VFXManager.Instance.PlayComboEffect(battleUI.gameObject, "ENEMY FUSION BREAK!!", Color.magenta);
                 }
+                
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySE(AudioManager.Instance.seButton50);
 
                 // カードを消費（捨て札へ）
                 gm.UseCard(playerCard);
@@ -842,4 +884,100 @@ public class BattleManager : MonoBehaviour
         gm.ChangeState(GameState.Field);
         Debug.Log($"[BattleManager] 逃走成功！ カードロスト:『{lostCardName}』");
     }
+
+    // --- Status Effect System ---
+    public void AddStatusEffect(bool isPlayer, StatusType type, int value, int duration)
+    {
+        var targetList = isPlayer ? playerStatusEffects : enemyStatusEffects;
+        // 既存のものがあれば上書き
+        var existing = targetList.Find(s => s.Type == type);
+        if (existing != null)
+        {
+            existing.Value = value;
+            existing.Duration = duration;
+        }
+        else
+        {
+            targetList.Add(new StatusEffect { Type = type, Value = value, Duration = duration });
+        }
+    }
+
+    public void ProcessStatusEffects(bool isPlayer)
+    {
+        var targetList = isPlayer ? playerStatusEffects : enemyStatusEffects;
+        for (int i = targetList.Count - 1; i >= 0; i--)
+        {
+            var effect = targetList[i];
+            
+            if (effect.Type == StatusType.Poison)
+            {
+                if (isPlayer)
+                {
+                    if (GameManager.Instance != null) GameManager.Instance.TakeDamage(effect.Value);
+                    AddBattleLog($"<color=#9932CC>毒ダメージ！ プレイヤーは{effect.Value}のダメージを受けた。</color>");
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
+                        VFXManager.Instance.PlayDamageEffect(battleUI.playerHPText.gameObject, effect.Value, true);
+                }
+                else
+                {
+                    enemyCurrentHP = Mathf.Max(0, enemyCurrentHP - effect.Value);
+                    AddBattleLog($"<color=#9932CC>毒ダメージ！ 敵に{effect.Value}のダメージ！</color>");
+                    if (AudioManager.Instance != null) AudioManager.Instance.PlaySE(AudioManager.Instance.seButton38);
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.enemyKanjiText != null)
+                        VFXManager.Instance.PlayDamageEffect(battleUI.enemyKanjiText.gameObject, effect.Value);
+                }
+            }
+            else if (effect.Type == StatusType.Regen)
+            {
+                if (isPlayer)
+                {
+                    if (GameManager.Instance != null) GameManager.Instance.Heal(effect.Value);
+                    AddBattleLog($"<color=#32CD32>リジェネ回復！ プレイヤーは{effect.Value}回復した。</color>");
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
+                    {
+                        VFXManager.Instance.PlayHealVFX(battleUI.playerHPText.transform.position);
+                        VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, effect.Value);
+                    }
+                }
+                else
+                {
+                    if (currentEnemyData != null)
+                    {
+                        enemyCurrentHP = Mathf.Min(currentEnemyData.maxHP, enemyCurrentHP + effect.Value);
+                        AddBattleLog($"<color=#32CD32>リジェネ回復！ 敵は{effect.Value}回復した。</color>");
+                    }
+                }
+            }
+
+            effect.Duration--;
+            if (effect.Duration <= 0)
+            {
+                targetList.RemoveAt(i);
+            }
+        }
+    }
+
+    public void CleanseDebuffs(bool isPlayer)
+    {
+        var targetList = isPlayer ? playerStatusEffects : enemyStatusEffects;
+        int removed = targetList.RemoveAll(s => s.Type == StatusType.Poison); // Poisonはデバフ
+        if (removed > 0)
+        {
+            AddBattleLog($"<color=#00FFFF>解毒効果発動！ 毒状態が解除された！</color>");
+        }
+    }
+}
+
+public enum StatusType
+{
+    Poison,
+    Regen
+}
+
+[System.Serializable]
+public class StatusEffect
+{
+    public StatusType Type;
+    public int Value;
+    public int Duration;
 }
