@@ -220,9 +220,13 @@ public class BattleFusionArea : MonoBehaviour
         gm.AddToInventory(resultCard);
         if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultId);
 
-        // AP+1（上限なし）
-        gm.playerMana += 1;
-        Debug.Log($"[BattleFusionArea] 合体ボーナス：AP+1（現在:{gm.playerMana}）");
+        // 合体成功ボーナス：2枚ドロー（AP廃止）
+        int fusionDrawCount = Mathf.Min(2, gm.initialHandSize - gm.hand.Count);
+        if (fusionDrawCount > 0)
+        {
+            gm.DrawFromDeck(fusionDrawCount);
+            Debug.Log($"[BattleFusionArea] 合体ボーナスドロー：{fusionDrawCount}枚");
+        }
 
         // スポーンアニメーション予約
         if (VFXManager.Instance != null) VFXManager.Instance.RegisterSpawnEffect(resultCard);

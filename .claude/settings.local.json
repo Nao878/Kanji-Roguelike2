@@ -29,7 +29,14 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
       "Bash(not exist *)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "Bash(timeout 5 echo waiting *)",
+      "Bash(timeout 4 echo waiting *)",
+      "Bash(timeout 2 echo waiting *)",
+      "Bash(timeout 2 echo done *)",
+      "Bash(timeout 3 echo waiting *)",
+      "Bash(timeout 5 echo battle *)",
+      "Bash(timeout 5 echo transition *)"
     ]
   }
 }

@@ -193,8 +193,23 @@ public class AudioManager : MonoBehaviour
                 }
             }
 
+            // Editorフォールバック：AssetDatabaseから直接ロード
+#if UNITY_EDITOR
+            if (battleBGM == null)
+                battleBGM = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audios/404FreezeCode.mp3");
+            if (battleBGM2 == null)
+                battleBGM2 = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audios/memento_loop.ogg");
+            if (wolfBossBGM == null)
+                wolfBossBGM = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audios/Loneryboy.mp3");
+            if (oniBossBGM == null)
+            {
+                oniBossBGM = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audios/KARMA1Loop.mp3");
+                if (oniBossBGM != null) Debug.Log("[AudioManager] oniBossBGMをAssetDatabaseから読み込み: KARMA1Loop.mp3");
+            }
+#endif
             if (battleBGM == null) Debug.LogWarning("[AudioManager] battleBGM（404FreezeCode）が見つかりません");
             if (battleBGM2 == null) Debug.LogWarning("[AudioManager] battleBGM2（memento_loop）が見つかりません");
+            if (oniBossBGM == null) Debug.LogWarning("[AudioManager] oniBossBGM（KARMA1Loop）が見つかりません");
         }
     }
 

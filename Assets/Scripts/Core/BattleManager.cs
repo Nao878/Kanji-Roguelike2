@@ -264,7 +264,12 @@ public class BattleManager : MonoBehaviour
         ApplyCardEffect(card);
         CheckBattleEnd();
 
-        // 全アクション完了後に一度だけUI更新（APズレ防止のため必ずここで更新）
+        // カード使用後に1枚ドロー（手札上限以下の場合のみ・戦闘継続中のみ）
+        if (battleState == BattleState.PlayerTurn && gm.hand.Count < gm.initialHandSize)
+        {
+            gm.DrawFromDeck(1);
+        }
+
         UpdateUI();
         if (battleUI != null)
         {
@@ -315,8 +320,9 @@ public class BattleManager : MonoBehaviour
         {
             isMirrorClash = true;
             attackValue *= 3; // 確定クリティカル（特大ダメージ）
-            gm.playerMana += 1; // AP回復
-            AddBattleLog("<color=#FF0000><b>相殺（Mirror Clash）発動！特大ダメージ ＆ AP+1！</b></color>");
+            // AP廃止により1枚追加ドロー（後のPlayCard内ドローとは別に実施）
+            if (gm.hand.Count < gm.initialHandSize) gm.DrawFromDeck(1);
+            AddBattleLog("<color=#FF0000><b>相殺（Mirror Clash）発動！特大ダメージ ＆ ボーナスドロー！</b></color>");
             if (VFXManager.Instance != null && battleUI != null)
             {
                 VFXManager.Instance.PlayComboEffect(battleUI.gameObject, "MIRROR CLASH!!", Color.red);
@@ -499,6 +505,11 @@ public class BattleManager : MonoBehaviour
                 AddBattleLog($"『{card.DisplayName}』で敵をスタンさせた！");
                 if (VFXManager.Instance != null && battleUI != null && battleUI.enemyKanjiText != null)
                     VFXManager.Instance.PlayStunVFX(battleUI.enemyKanjiText.transform.position);
+                break;
+
+            case CardEffectType.Shop:
+                AddBattleLog($"『{card.DisplayName}』で店が開いた！好きなカードを1枚選べ！");
+                if (battleUI != null) battleUI.ShowShopSelection();
                 break;
         }
     }
@@ -900,11 +911,12 @@ public class BattleManager : MonoBehaviour
                 currentEnemyData.enemyName = resultCard.cardName + "化した敵";
                 currentEnemyData.componentCount = resultCard.componentCount;
                 
-                // 変化した敵はスタン ＆ AP+1
+                // 変化した敵はスタン ＆ ボーナスドロー2枚
                 enemyIsStunned = true;
-                gm.playerMana += 1;
-                
-                AddBattleLog($"敵はスタン状態になり、APが1回復した！");
+                int fusionDraw = Mathf.Min(2, gm.initialHandSize - gm.hand.Count);
+                if (fusionDraw > 0) gm.DrawFromDeck(fusionDraw);
+
+                AddBattleLog($"敵はスタン状態になり、{fusionDraw}枚ドロー！");
 
                 if (VFXManager.Instance != null && battleUI != null)
                 {
@@ -937,7 +949,7 @@ public class BattleManager : MonoBehaviour
         if (gm == null) return;
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
-        if (playerManaText != null) playerManaText.text = $"マナ: {gm.playerMana}/{gm.playerMaxMana}";
+        if (playerManaText != null) playerManaText.gameObject.SetActive(false); // AP廃止
 
         if (currentEnemyData != null)
         {

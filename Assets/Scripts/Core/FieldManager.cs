@@ -71,6 +71,9 @@ public class FieldManager : MonoBehaviour
     // 現在エンカウント中の敵インデックス
     private int currentEncounterIndex = -1;
 
+    // チュートリアルモードフラグ
+    private bool isTutorialMode = false;
+
     /// <summary>
     /// フィールド表示
     /// </summary>
@@ -829,6 +832,14 @@ public class FieldManager : MonoBehaviour
     }
 
     /// <summary>
+    /// チュートリアルモードを設定（チュートリアル戦闘後にフィールド移行する）
+    /// </summary>
+    public void SetTutorialMode(bool value)
+    {
+        isTutorialMode = value;
+    }
+
+    /// <summary>
     /// 戦闘勝利後に呼ばれる：敵を撃破済みにする
     /// </summary>
     public void OnBattleWon()
@@ -853,6 +864,14 @@ public class FieldManager : MonoBehaviour
             }
         }
         currentEncounterIndex = -1;
+
+        // チュートリアル戦闘勝利時：完了フラグをセットしてフィールドへ
+        if (isTutorialMode)
+        {
+            isTutorialMode = false;
+            TitleScreenManager.OnTutorialBattleWon();
+            Debug.Log("[FieldManager] チュートリアル戦闘クリア！フィールドへ移行します。");
+        }
 
         // 戦闘回数をインクリメント（鬼カウントダウン用）
         battleCountOnCurrentFloor++;

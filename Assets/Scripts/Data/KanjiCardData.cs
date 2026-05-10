@@ -88,7 +88,8 @@ public enum CardEffectType
     Draw,     // ドロー
     AttackAll, // 全体攻撃
     Stun,      // スタン
-    Debuff     // デバフ
+    Debuff,    // デバフ
+    Shop       // 店（5枚からカード選択）
 }
 
 /// <summary>

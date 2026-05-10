@@ -39,6 +39,13 @@ public class BattleUI : MonoBehaviour
     private List<CardController> handCards = new List<CardController>();
     private Button _fleeButton;
 
+    // シールドUI
+    private Transform shieldContainer;
+    private List<GameObject> shieldUIObjects = new List<GameObject>();
+
+    // 店選択UI
+    private GameObject shopSelectionPanel;
+
     private void Start()
     {
         if (endTurnButton != null)
@@ -58,10 +65,11 @@ public class BattleUI : MonoBehaviour
             fusionButton.onClick.AddListener(OnFusionClicked);
         }
 
-        if (drawCardButton == null)
-            drawCardButton = CreateDrawButton();
+        // ドローボタンはAP廃止により不要（自動ドローに移行）
         if (drawCardButton != null)
-            drawCardButton.onClick.AddListener(OnDrawCardClicked);
+        {
+            drawCardButton.gameObject.SetActive(false);
+        }
 
         // 「逃げる」ボタンを動的生成
         CreateFleeButton();
@@ -78,6 +86,9 @@ public class BattleUI : MonoBehaviour
             playerHPBar = CreateHPBar(playerHPText.transform, false);
         if (enemyHPBar == null && enemyHPText != null)
             enemyHPBar = CreateHPBar(enemyHPText.transform, true);
+
+        // シールドUIを生成
+        CreateShieldUI();
 
         // テキスト要素にOutlineを追加して視認性向上
         AddTextOutline(playerHPText, new Color(0f, 0.2f, 0f, 0.85f));
@@ -817,10 +828,7 @@ public class BattleUI : MonoBehaviour
         if (gm == null) return;
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
-        if (playerManaText != null) playerManaText.text = $"マナ: {gm.playerMana}/{gm.playerMaxMana}";
-
-        if (drawCardButton != null)
-            drawCardButton.interactable = gm.playerMana >= 1 && gm.hand.Count < gm.initialHandSize;
+        if (playerManaText != null) playerManaText.gameObject.SetActive(false); // AP廃止
 
         if (playerHPBar != null)
         {
@@ -859,6 +867,267 @@ public class BattleUI : MonoBehaviour
                 }
                 enemyHPBar.SetStatusIcon(enemyStatus.Trim());
             }
+        }
+
+        // シールドコンテナが未生成なら再作成（遅延初期化対応）
+        if (shieldContainer == null) CreateShieldUI();
+        UpdateShieldUI();
+    }
+
+    /// <summary>
+    /// シールドUIコンテナを生成（HPバーの下に3枚の裏向きカード）
+    /// </summary>
+    private void CreateShieldUI()
+    {
+        // MainCanvas（BattlePanel親）を優先して配置
+        Canvas canvas = null;
+        // playerHPTextのCanvasを優先（同じ描画階層に配置）
+        if (playerHPText != null)
+            canvas = playerHPText.GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            // FindObjectsByTypeで全Canvas取得、MainCanvasを探す
+            var allCanvas = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+            foreach (var c in allCanvas)
+                if (c.name == "MainCanvas" || c.isRootCanvas && c.sortingOrder == 0) { canvas = c; break; }
+            if (canvas == null && allCanvas.Length > 0) canvas = allCanvas[0];
+        }
+        if (canvas == null) return;
+
+        var containerGo = new GameObject("ShieldContainer");
+        containerGo.transform.SetParent(canvas.transform, false);
+
+        var containerRect = containerGo.AddComponent<RectTransform>();
+        // 画面左下寄りの固定位置（HP表示の近く）
+        containerRect.anchorMin = new Vector2(0f, 1f);
+        containerRect.anchorMax = new Vector2(0f, 1f);
+        containerRect.pivot = new Vector2(0f, 1f);
+        containerRect.anchoredPosition = new Vector2(8f, -120f); // HP表示の下に配置
+        containerRect.sizeDelta = new Vector2(300f, 110f);
+
+        var hLayout = containerGo.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+        hLayout.spacing = 8f;
+        hLayout.childAlignment = TextAnchor.MiddleLeft;
+        hLayout.childForceExpandWidth = false;
+        hLayout.childForceExpandHeight = false;
+        hLayout.padding = new RectOffset(4, 4, 4, 4);
+
+        shieldContainer = containerGo.transform;
+    }
+
+    /// <summary>
+    /// シールドUI更新（手持ちシールド枚数に合わせて裏向きカードを表示）
+    /// </summary>
+    public void UpdateShieldUI()
+    {
+        if (shieldContainer == null) return;
+
+        // 既存を削除
+        foreach (var obj in shieldUIObjects)
+            if (obj != null) Destroy(obj);
+        shieldUIObjects.Clear();
+
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        for (int i = 0; i < gm.shields.Count; i++)
+        {
+            var shieldGo = new GameObject($"Shield_{i}");
+            shieldGo.transform.SetParent(shieldContainer, false);
+
+            var rect = shieldGo.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(88f, 100f);
+
+            var le = shieldGo.AddComponent<UnityEngine.UI.LayoutElement>();
+            le.preferredWidth = 88f;
+            le.preferredHeight = 100f;
+            le.minWidth = 88f;
+            le.minHeight = 100f;
+
+            var bg = shieldGo.AddComponent<UnityEngine.UI.Image>();
+            bg.color = new Color(0.1f, 0.3f, 0.7f, 0.9f);
+
+            var border = shieldGo.AddComponent<Outline>();
+            border.effectColor = new Color(0.4f, 0.7f, 1f, 0.9f);
+            border.effectDistance = new Vector2(2f, -2f);
+
+            var textGo = new GameObject("ShieldText");
+            textGo.transform.SetParent(shieldGo.transform, false);
+            var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
+            tmp.text = "?";
+            tmp.fontSize = 46f;
+            tmp.fontStyle = TMPro.FontStyles.Bold;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.color = new Color(0.7f, 0.9f, 1f, 1f);
+            tmp.raycastTarget = false;
+            if (appFont != null) tmp.font = appFont;
+            var tmpRect = textGo.GetComponent<RectTransform>();
+            tmpRect.anchorMin = Vector2.zero;
+            tmpRect.anchorMax = Vector2.one;
+            tmpRect.offsetMin = Vector2.zero;
+            tmpRect.offsetMax = Vector2.zero;
+
+            shieldUIObjects.Add(shieldGo);
+        }
+
+        // シールドがない場合は灰色のスロット表示
+        if (gm.shields.Count == 0)
+        {
+            for (int i = 0; i < gm.maxShields; i++)
+            {
+                var emptyGo = new GameObject($"ShieldEmpty_{i}");
+                emptyGo.transform.SetParent(shieldContainer, false);
+                var rect = emptyGo.AddComponent<RectTransform>();
+                rect.sizeDelta = new Vector2(88f, 100f);
+                var le2 = emptyGo.AddComponent<UnityEngine.UI.LayoutElement>();
+                le2.preferredWidth = 88f;
+                le2.preferredHeight = 100f;
+                le2.minWidth = 88f;
+                le2.minHeight = 100f;
+                var bg = emptyGo.AddComponent<UnityEngine.UI.Image>();
+                bg.color = new Color(0.2f, 0.2f, 0.2f, 0.4f);
+                var border = emptyGo.AddComponent<Outline>();
+                border.effectColor = new Color(0.4f, 0.4f, 0.4f, 0.5f);
+                border.effectDistance = new Vector2(2f, -2f);
+                shieldUIObjects.Add(emptyGo);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 店カード使用時：5枚のランダムカードを選択UIで表示
+    /// </summary>
+    public void ShowShopSelection()
+    {
+        if (shopSelectionPanel != null) return;
+
+        var canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = FindObjectOfType<Canvas>();
+        if (canvas == null) return;
+
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        // 全カードから5枚ランダムに候補を作成
+        var allCards = Resources.FindObjectsOfTypeAll<KanjiCardData>();
+        var candidates = new System.Collections.Generic.List<KanjiCardData>(allCards);
+        // シャッフル
+        for (int i = candidates.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            var tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
+        }
+        // 最大5枚
+        int count = Mathf.Min(5, candidates.Count);
+
+        // オーバーレイパネル
+        shopSelectionPanel = new GameObject("ShopSelectionPanel");
+        shopSelectionPanel.transform.SetParent(canvas.transform, false);
+        shopSelectionPanel.transform.SetAsLastSibling();
+
+        var overlayRect = shopSelectionPanel.AddComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        var overlayBg = shopSelectionPanel.AddComponent<UnityEngine.UI.Image>();
+        overlayBg.color = new Color(0f, 0f, 0f, 0.7f);
+
+        // タイトル
+        var titleGo = new GameObject("Title");
+        titleGo.transform.SetParent(shopSelectionPanel.transform, false);
+        var titleRect = titleGo.AddComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.1f, 0.7f);
+        titleRect.anchorMax = new Vector2(0.9f, 0.88f);
+        titleRect.offsetMin = Vector2.zero; titleRect.offsetMax = Vector2.zero;
+        var titleTmp = titleGo.AddComponent<TMPro.TextMeshProUGUI>();
+        titleTmp.text = "★ 店 ★\n1枚選んで手札に加えよう！";
+        titleTmp.fontSize = 28f;
+        titleTmp.alignment = TMPro.TextAlignmentOptions.Center;
+        titleTmp.color = new Color(1f, 0.92f, 0.3f);
+        if (appFont != null) titleTmp.font = appFont;
+
+        // カードパネル（横一列）
+        var cardRowGo = new GameObject("CardRow");
+        cardRowGo.transform.SetParent(shopSelectionPanel.transform, false);
+        var cardRowRect = cardRowGo.AddComponent<RectTransform>();
+        cardRowRect.anchorMin = new Vector2(0.05f, 0.25f);
+        cardRowRect.anchorMax = new Vector2(0.95f, 0.68f);
+        cardRowRect.offsetMin = Vector2.zero; cardRowRect.offsetMax = Vector2.zero;
+
+        var hLayout = cardRowGo.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+        hLayout.spacing = 12f;
+        hLayout.childAlignment = TextAnchor.MiddleCenter;
+        hLayout.childForceExpandWidth = false;
+        hLayout.childForceExpandHeight = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            var cardData = candidates[i];
+            var cardGo = new GameObject($"ShopCard_{cardData.kanji}");
+            cardGo.transform.SetParent(cardRowGo.transform, false);
+
+            var crect = cardGo.AddComponent<RectTransform>();
+            crect.sizeDelta = new Vector2(110f, 150f);
+
+            var cbg = cardGo.AddComponent<UnityEngine.UI.Image>();
+            cbg.color = new Color(0.15f, 0.15f, 0.18f, 0.95f);
+
+            var cOutline = cardGo.AddComponent<Outline>();
+            cOutline.effectColor = new Color(0.8f, 0.7f, 0.2f, 0.9f);
+            cOutline.effectDistance = new Vector2(3f, -3f);
+
+            var kanjiGo = new GameObject("Kanji");
+            kanjiGo.transform.SetParent(cardGo.transform, false);
+            var kTmp = kanjiGo.AddComponent<TMPro.TextMeshProUGUI>();
+            kTmp.text = cardData.kanji;
+            kTmp.fontSize = 44f;
+            kTmp.alignment = TMPro.TextAlignmentOptions.Center;
+            kTmp.color = Color.white;
+            kTmp.raycastTarget = false;
+            if (appFont != null) kTmp.font = appFont;
+            var kRect = kanjiGo.GetComponent<RectTransform>();
+            kRect.anchorMin = new Vector2(0f, 0.35f); kRect.anchorMax = new Vector2(1f, 0.88f);
+            kRect.offsetMin = Vector2.zero; kRect.offsetMax = Vector2.zero;
+
+            var descGo = new GameObject("Desc");
+            descGo.transform.SetParent(cardGo.transform, false);
+            var dTmp = descGo.AddComponent<TMPro.TextMeshProUGUI>();
+            dTmp.text = cardData.effectType.ToString();
+            dTmp.fontSize = 12f;
+            dTmp.alignment = TMPro.TextAlignmentOptions.Center;
+            dTmp.color = new Color(0.8f, 0.8f, 0.8f);
+            dTmp.raycastTarget = false;
+            if (appFont != null) dTmp.font = appFont;
+            var dRect = descGo.GetComponent<RectTransform>();
+            dRect.anchorMin = new Vector2(0f, 0f); dRect.anchorMax = new Vector2(1f, 0.32f);
+            dRect.offsetMin = new Vector2(3f, 3f); dRect.offsetMax = new Vector2(-3f, 0f);
+
+            // クリックで選択
+            var btn = cardGo.AddComponent<UnityEngine.UI.Button>();
+            var btnColors = btn.colors;
+            btnColors.highlightedColor = new Color(0.9f, 0.85f, 0.3f, 1f);
+            btn.colors = btnColors;
+            var capturedCard = cardData;
+            var capturedPanel = shopSelectionPanel;
+            btn.onClick.AddListener(() =>
+            {
+                var gm2 = GameManager.Instance;
+                if (gm2 != null)
+                {
+                    if (gm2.hand.Count < gm2.initialHandSize)
+                        gm2.hand.Add(capturedCard);
+                    else
+                        gm2.drawPile.Add(capturedCard);
+                    gm2.AddToInventory(capturedCard);
+                    gm2.battleManager?.AddBattleLog($"<color=#FFD700>『{capturedCard.kanji}』を手に入れた！</color>");
+                }
+                Destroy(capturedPanel);
+                shopSelectionPanel = null;
+                UpdateHandUI();
+                UpdateStatusUI();
+            });
         }
     }
 }

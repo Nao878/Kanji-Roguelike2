@@ -56,6 +56,10 @@ public class GameManager : MonoBehaviour
     [Header("ゲームオーバー")]
     public GameObject gameOverPanel;
 
+    [Header("シールドシステム")]
+    public List<KanjiCardData> shields = new List<KanjiCardData>();
+    public int maxShields = 3;
+
     public void ShowFusionSelectionUI(List<int> resultIds, System.Action<int> onSelected)
     {
         if (fusionSelectionUI != null)
@@ -109,6 +113,10 @@ public class GameManager : MonoBehaviour
         InitializeGame();
         WireHelpButton();
         RemoveHelpPanelCloseButton();
+
+        // TitleScreenManagerが未設定なら自動追加（チュートリアルシステム）
+        if (GetComponent<TitleScreenManager>() == null)
+            gameObject.AddComponent<TitleScreenManager>();
     }
 
     private void RemoveHelpPanelCloseButton()
@@ -139,10 +147,14 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(KeyCode.F1))
-        {
+#if ENABLE_INPUT_SYSTEM
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        if (kb != null && (kb.hKey.wasPressedThisFrame || kb.f1Key.wasPressedThisFrame))
             ToggleHelpPanel();
-        }
+#else
+        if (Input.GetKeyDown(KeyCode.H) || Input.GetKeyDown(KeyCode.F1))
+            ToggleHelpPanel();
+#endif
     }
 
     public void ToggleHelpPanel()
@@ -391,27 +403,14 @@ public class GameManager : MonoBehaviour
 
 
     /// <summary>
-    /// カードを使用（消費型：インベントリからも完全削除）
-    /// </summary>
-    /// <summary>
-    /// カードを使用（循環システム：捨て札へ移動）
+    /// カードを使用（APコストなし・循環システム：捨て札へ移動）
     /// </summary>
     public bool UseCard(KanjiCardData card)
     {
-        // Attack/AttackAll/Specialはコスト1、他は0に設定済
-        int actualCost = card.cost;
-
-        if (playerMana < actualCost)
-        {
-            Debug.Log($"[GameManager] マナ不足！ 必要:{actualCost} 現在:{playerMana}");
-            return false;
-        }
-
-        playerMana -= actualCost;
         hand.Remove(card);
         discardPile.Add(card); // 捨て札へ
 
-        Debug.Log($"[GameManager] カード使用: {card.kanji}（コスト:{actualCost} 捨て札へ移動、残マナ:{playerMana}）");
+        Debug.Log($"[GameManager] カード使用: {card.kanji}（捨て札へ移動）");
         return true;
     }
 
@@ -440,11 +439,41 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーにダメージ
+    /// プレイヤーにダメージ（シールドが残っていれば先にシールドを破壊）
     /// </summary>
     public void TakeDamage(int damage)
     {
         int actualDamage = Mathf.Max(0, damage - playerDefenseBuff);
+
+        // シールドトリガー：ダメージをシールドで受け止める
+        if (shields.Count > 0 && actualDamage > 0)
+        {
+            var brokenShield = shields[shields.Count - 1];
+            shields.RemoveAt(shields.Count - 1);
+
+            if (hand.Count < initialHandSize)
+            {
+                hand.Add(brokenShield);
+                Debug.Log($"[GameManager] シールドトリガー！『{brokenShield.kanji}』が手札に加わった！");
+                battleManager?.AddBattleLog($"<color=#00FFFF><b>シールドトリガー！『{brokenShield.kanji}』が手札に加わった！</b></color>");
+            }
+            else
+            {
+                // 手札満杯時は山札の底へ
+                drawPile.Insert(0, brokenShield);
+                Debug.Log($"[GameManager] シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ");
+                battleManager?.AddBattleLog($"<color=#00FFFF>シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ。</color>");
+            }
+
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.PlaySE(AudioManager.Instance.seButton50);
+
+            // シールド・手札UIを更新
+            battleManager?.battleUI?.UpdateShieldUI();
+            battleManager?.battleUI?.UpdateHandUI();
+            return; // HPへのダメージなし
+        }
+
         playerHP = Mathf.Max(0, playerHP - actualDamage);
         Debug.Log($"[GameManager] プレイヤーが{actualDamage}ダメージ受けた HP:{playerHP}");
 
@@ -468,25 +497,20 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ターン開始時のリセット
-    /// </summary>
-    /// <summary>
-    /// ターン開始時のリセット
+    /// ターン開始時のリセット（APシステム廃止：マナ加算なし）
     /// </summary>
     public void StartPlayerTurn()
     {
-        // AP制限の撤廃：最大値に制限せず加算していく
-        playerMana += playerMaxMana; 
         playerDefenseBuff = 0;
-        
+
         // 手札補充：手札上限 - 現在の手札枚数だけドロー（差分ドロー方式）
         int drawCount = Mathf.Max(0, initialHandSize - hand.Count);
         if (drawCount > 0)
         {
             DrawFromDeck(drawCount);
         }
-        
-        Debug.Log($"[GameManager] プレイヤーターン開始 マナ:{playerMana} 手札:{hand.Count}枚");
+
+        Debug.Log($"[GameManager] プレイヤーターン開始 手札:{hand.Count}枚");
     }
 
 
@@ -520,7 +544,16 @@ public class GameManager : MonoBehaviour
             drawPile[i] = drawPile[j];
             drawPile[j] = temp;
         }
-        Debug.Log($"[GameManager] バトル用デッキ準備完了（手札持ち越し:{hand.Count}枚）: drawPile={drawPile.Count}枚");
+
+        // シールドを山札の先頭から3枚セット
+        shields.Clear();
+        for (int i = 0; i < maxShields && drawPile.Count > 0; i++)
+        {
+            shields.Add(drawPile[0]);
+            drawPile.RemoveAt(0);
+        }
+
+        Debug.Log($"[GameManager] バトル用デッキ準備完了（手札持ち越し:{hand.Count}枚）: drawPile={drawPile.Count}枚 シールド:{shields.Count}枚");
     }
 
     public void InitializeFusionRecipes()
@@ -606,12 +639,8 @@ public class GameManager : MonoBehaviour
         {
             if (card == null) continue;
 
-            // 攻撃・回復・スタンはコスト1、バフ/デバフ/防御/ドローは0
-            int targetCost = (card.effectType == CardEffectType.Attack ||
-                              card.effectType == CardEffectType.AttackAll ||
-                              card.effectType == CardEffectType.Special ||
-                              card.effectType == CardEffectType.Heal ||
-                              card.effectType == CardEffectType.Stun) ? 1 : 0;
+            // AP廃止：全カードコスト0（EnforceCardBalancePatches互換のため残す）
+            int targetCost = 0;
 
             if (card.cost != targetCost)
             {
@@ -627,16 +656,11 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // インベントリ内のカードにも適用
+        // インベントリ内のカードにも適用（AP廃止：全コスト0）
         foreach (var card in inventory)
         {
             if (card == null) continue;
-            int targetCost = (card.effectType == CardEffectType.Attack ||
-                              card.effectType == CardEffectType.AttackAll ||
-                              card.effectType == CardEffectType.Special ||
-                              card.effectType == CardEffectType.Heal ||
-                              card.effectType == CardEffectType.Stun) ? 1 : 0;
-            if (card.cost != targetCost) card.cost = targetCost;
+            card.cost = 0;
             if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
                 card.effectValue = 2;
         }
