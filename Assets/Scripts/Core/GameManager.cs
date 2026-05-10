@@ -606,10 +606,12 @@ public class GameManager : MonoBehaviour
         {
             if (card == null) continue;
 
-            // 攻撃・全体攻撃・特殊攻撃はコスト1、サポート系は0
-            int targetCost = (card.effectType == CardEffectType.Attack || 
-                              card.effectType == CardEffectType.AttackAll || 
-                              card.effectType == CardEffectType.Special) ? 1 : 0;
+            // 攻撃・回復・スタンはコスト1、バフ/デバフ/防御/ドローは0
+            int targetCost = (card.effectType == CardEffectType.Attack ||
+                              card.effectType == CardEffectType.AttackAll ||
+                              card.effectType == CardEffectType.Special ||
+                              card.effectType == CardEffectType.Heal ||
+                              card.effectType == CardEffectType.Stun) ? 1 : 0;
 
             if (card.cost != targetCost)
             {
@@ -629,9 +631,11 @@ public class GameManager : MonoBehaviour
         foreach (var card in inventory)
         {
             if (card == null) continue;
-            int targetCost = (card.effectType == CardEffectType.Attack || 
-                              card.effectType == CardEffectType.AttackAll || 
-                              card.effectType == CardEffectType.Special) ? 1 : 0;
+            int targetCost = (card.effectType == CardEffectType.Attack ||
+                              card.effectType == CardEffectType.AttackAll ||
+                              card.effectType == CardEffectType.Special ||
+                              card.effectType == CardEffectType.Heal ||
+                              card.effectType == CardEffectType.Stun) ? 1 : 0;
             if (card.cost != targetCost) card.cost = targetCost;
             if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
                 card.effectValue = 2;

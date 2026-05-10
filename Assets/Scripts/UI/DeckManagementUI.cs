@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,8 +65,13 @@ public class DraggableCardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 if (uiRef.CanAddToDeck(cardData))
                 {
                     uiRef.AddToDeck(cardData);
+                    droppedOnTarget = true;
                 }
-                droppedOnTarget = true;
+                else
+                {
+                    uiRef.ShowFullDeckNotification();
+                    // droppedOnTarget は false のまま → 元の位置に戻る
+                }
                 break;
             }
         }
@@ -486,5 +492,24 @@ public class DeckManagementUI : MonoBehaviour
     {
         if (GameManager.Instance != null)
             GameManager.Instance.ChangeState(GameState.Field);
+    }
+
+    private Coroutine _notificationCoroutine;
+
+    /// <summary>
+    /// デッキ満杯時の通知を2秒間表示する
+    /// </summary>
+    public void ShowFullDeckNotification()
+    {
+        if (_notificationCoroutine != null) StopCoroutine(_notificationCoroutine);
+        _notificationCoroutine = StartCoroutine(FullDeckNotificationCoroutine());
+    }
+
+    private IEnumerator FullDeckNotificationCoroutine()
+    {
+        if (deckValidationText != null)
+            deckValidationText.text = "<color=#FF4444>これ以上追加できません！</color>";
+        yield return new WaitForSeconds(2.0f);
+        RefreshUI();
     }
 }

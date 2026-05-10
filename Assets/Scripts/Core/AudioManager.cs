@@ -161,7 +161,7 @@ public class AudioManager : MonoBehaviour
     /// </summary>
     private void LoadBGMClipsIfMissing()
     {
-        if (battleBGM == null || battleBGM2 == null || wolfBossBGM == null)
+        if (battleBGM == null || battleBGM2 == null || wolfBossBGM == null || oniBossBGM == null)
         {
             // UnityEditorのみ使用可能なAssetDatabase以外のアプローチ
             // Resources以外のフォルダの場合、シーン内のAudioSourceやScriptableObjectから参照を取得

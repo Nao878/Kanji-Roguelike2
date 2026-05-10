@@ -15,6 +15,9 @@ public class FieldManager : MonoBehaviour
     public int gridHeight = 8;
     public float cellSize = 64f;
 
+    [Header("ボスデータ（未設定時は動的生成）")]
+    public EnemyData wolfBossEnemy;
+
     [Header("UI参照")]
     public RectTransform fieldContent;
     public TextMeshProUGUI inventoryCountText;
@@ -303,14 +306,40 @@ public class FieldManager : MonoBehaviour
                 fieldEnemies.Add(fieldEnemy);
             }
 
-            if (bm.bossEnemy != null)
+            // フロア3以降は狼ボスを強制配置
+            EnemyData bossDataToUse = null;
+            if (currentFloor >= 3)
+            {
+                if (wolfBossEnemy != null)
+                {
+                    bossDataToUse = wolfBossEnemy;
+                }
+                else
+                {
+                    var wolfData = ScriptableObject.CreateInstance<EnemyData>();
+                    wolfData.enemyName = "狼";
+                    wolfData.displayKanji = "狼";
+                    wolfData.maxHP = 150 + (currentFloor - 3) * 30;
+                    wolfData.attackPower = 18 + (currentFloor - 3) * 5;
+                    wolfData.enemyType = EnemyType.Boss;
+                    wolfData.componentCount = 3;
+                    wolfData.isWolfBoss = true;
+                    bossDataToUse = wolfData;
+                    Debug.Log($"[FieldManager] F{currentFloor}: 狼ボスを動的生成");
+                }
+            }
+            else if (bm.bossEnemy != null)
+            {
+                bossDataToUse = ScaleEnemyForFloor(bm.bossEnemy);
+            }
+
+            if (bossDataToUse != null)
             {
                 var bossPos = new Vector2Int(gridWidth - 2, gridHeight / 2);
-                var scaledBoss = ScaleEnemyForFloor(bm.bossEnemy);
                 var bossEnemy = new FieldEnemy
                 {
                     gridPos = bossPos,
-                    enemyData = scaledBoss,
+                    enemyData = bossDataToUse,
                     isDefeated = false
                 };
                 bossEnemy.uiObject = CreateEnemySymbol(bossEnemy);
@@ -717,6 +746,7 @@ public class FieldManager : MonoBehaviour
         oniData.attackPower = 12 + currentFloor * 3;
         oniData.enemyType = EnemyType.Boss;
         oniData.componentCount = 10;
+        oniData.isOniBoss = true;  // 鬼専用システム（カウントダウン・BGM）を有効化
 
         AddBattleFloorLabel();
         bm.StartBattle(oniData);

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__UnityMCP__read_console",
+      "mcp__UnityMCP__manage_scene",
+      "mcp__UnityMCP__find_gameobjects",
+      "mcp__UnityMCP__manage_editor",
+      "mcp__UnityMCP__manage_components",
+      "mcp__UnityMCP__create_script",
+      "Bash(taskkill /F /IM Unity.exe)",
+      "Bash(taskkill /F /IM \"Unity Hub.exe\")",
+      "Bash(start \"\" \"C:\\\\Program Files\\\\Unity\\\\Hub\\\\Editor\\\\6000.3.8f1\\\\Editor\\\\Unity.exe\" -projectPath \"C:\\\\Users\\\\yanao\\\\OneDrive\\\\Documents\\\\GitHub\\\\Kanji-Roguelike\")",
+      "Bash(tasklist /FI \"IMAGENAME eq Unity.exe\")",
+      "PowerShell(Start-Process -FilePath \"C:\\\\Program Files\\\\Unity\\\\Hub\\\\Editor\\\\6000.3.8f1\\\\Editor\\\\Unity.exe\" -ArgumentList \"-projectPath `\"C:\\\\Users\\\\yanao\\\\OneDrive\\\\Documents\\\\GitHub\\\\Kanji-Roguelike`\"\" -WindowStyle Normal)",
+      "PowerShell($proc = Start-Process -FilePath \"C:\\\\Program Files\\\\Unity\\\\Hub\\\\Editor\\\\6000.3.8f1\\\\Editor\\\\Unity.exe\" -ArgumentList \"-projectPath `\"C:\\\\Users\\\\yanao\\\\OneDrive\\\\Documents\\\\GitHub\\\\Kanji-Roguelike`\"\" -PassThru; Start-Sleep -Seconds 3; Write-Output \"PID: $\\($proc.Id\\)\"; Get-Process -Id $proc.Id -ErrorAction SilentlyContinue | Select-Object Name, Id)",
+      "PowerShell(Get-Process | Select-Object Name, Id | Where-Object { $_.Name -match \"Unity|Hub\" })",
+      "PowerShell($hubPath = \"${env:LOCALAPPDATA}\\\\Programs\\\\Unity Hub\\\\Unity Hub.exe\"; if \\(Test-Path $hubPath\\) { Write-Output \"Hub found: $hubPath\"; Start-Process -FilePath $hubPath } else { Write-Output \"Hub not found at $hubPath\" })"
+    ]
+  }
+}

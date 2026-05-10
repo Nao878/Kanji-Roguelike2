@@ -12935,10 +12935,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
   bgmSource: {fileID: 0}
   battleBGM: {fileID: 8300000, guid: fcd0f8bef472f164287bd83a4d8b06c9, type: 3}
+  battleBGM2: {fileID: 8300000, guid: 3972de38b00447b45b8732258df2c496, type: 3}
+  wolfBossBGM: {fileID: 8300000, guid: 939877e3438fa6f49bfa2c5c7a020bb9, type: 3}
+  oniBossBGM: {fileID: 8300000, guid: 0eea64f9b87bd2e48864f130ec58f4ec, type: 3}
+  zetsuBossBGMA: {fileID: 0}
+  zetsuBossBGMB: {fileID: 0}
   fieldBGM: {fileID: 0}
+  seBlow3: {fileID: 8300000, guid: 56217d53005ea3f45bed358e1430a70f, type: 3}
+  seButton38: {fileID: 8300000, guid: 0ae6f5e0c33010d4b849f459c090bac7, type: 3}
+  seButton44: {fileID: 8300000, guid: 8093e4e6ecf5ef04cbfb90325928a5e2, type: 3}
+  seButton50: {fileID: 8300000, guid: b71f481f8575b6940b42c4210460974d, type: 3}
+  battleBGM1_BPM: 152
+  battleBGM2_BPM: 120
+  wolfBossBGM_BPM: 140
   bgmVolume: 0.7
   seVolume: 1
   appFont: {fileID: 0}
+  seSource: {fileID: 0}
 --- !u!1 &1844609135
 GameObject:
   m_ObjectHideFlags: 0

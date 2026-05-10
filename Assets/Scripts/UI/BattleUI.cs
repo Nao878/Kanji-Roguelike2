@@ -37,6 +37,7 @@ public class BattleUI : MonoBehaviour
     public HPBarController enemyHPBar;
 
     private List<CardController> handCards = new List<CardController>();
+    private Button _fleeButton;
 
     private void Start()
     {
@@ -64,6 +65,9 @@ public class BattleUI : MonoBehaviour
 
         // 「逃げる」ボタンを動的生成
         CreateFleeButton();
+
+        // 「捨てる」ボタンを動的生成
+        CreateDiscardButton();
 
         // 各種ボタンにSE（ホバー／クリック）を追加
         AddButtonSE(endTurnButton);
@@ -634,6 +638,97 @@ public class BattleUI : MonoBehaviour
 
         btn.onClick.AddListener(OnFleeClicked);
         AddButtonSE(btn);
+        _fleeButton = btn;
+    }
+
+    /// <summary>
+    /// 「捨てる」ボタンを動的生成（逃げるボタンの下に配置）
+    /// </summary>
+    private void CreateDiscardButton()
+    {
+        Transform parent = endTurnButton?.transform.parent ?? transform;
+
+        var go = new GameObject("DiscardButton");
+        go.transform.SetParent(parent, false);
+        var rect = go.AddComponent<RectTransform>();
+
+        // 逃げる → ドロー → 終了の順に上に積まれているので、捨てるはその最上に配置
+        Button refBtn = _fleeButton ?? drawCardButton ?? endTurnButton;
+        if (refBtn != null)
+        {
+            var src = refBtn.GetComponent<RectTransform>();
+            float anchorHeight = src.anchorMax.y - src.anchorMin.y;
+            float margin = 0.02f;
+            rect.anchorMin = new Vector2(src.anchorMin.x, src.anchorMax.y + margin);
+            rect.anchorMax = new Vector2(src.anchorMax.x, src.anchorMax.y + margin + anchorHeight);
+            rect.sizeDelta = Vector2.zero;
+            rect.anchoredPosition = Vector2.zero;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(0.75f, 0.55f);
+            rect.anchorMax = new Vector2(0.97f, 0.65f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.45f, 0.28f, 0.05f, 0.92f);
+
+        var btn = go.AddComponent<Button>();
+        var colors = btn.colors;
+        colors.normalColor      = img.color;
+        colors.highlightedColor = new Color(0.6f, 0.38f, 0.08f, 1f);
+        colors.pressedColor     = new Color(0.3f, 0.18f, 0.03f, 1f);
+        colors.disabledColor    = new Color(0.25f, 0.18f, 0.05f, 0.5f);
+        btn.colors = colors;
+
+        var textGo = new GameObject("Label");
+        textGo.transform.SetParent(go.transform, false);
+        var tmp = textGo.AddComponent<TextMeshProUGUI>();
+        tmp.text = "捨てる\n(AP不要)";
+        tmp.fontSize = 11f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = new Color(1f, 0.85f, 0.6f);
+        tmp.raycastTarget = false;
+        if (appFont != null) tmp.font = appFont;
+        var tmpRect = textGo.GetComponent<RectTransform>();
+        tmpRect.anchorMin = Vector2.zero;
+        tmpRect.anchorMax = Vector2.one;
+        tmpRect.offsetMin = Vector2.zero;
+        tmpRect.offsetMax = Vector2.zero;
+
+        btn.onClick.AddListener(OnDiscardClicked);
+        AddButtonSE(btn);
+    }
+
+    /// <summary>
+    /// 捨てるボタン押下：選択中カードをAPなしで破棄
+    /// </summary>
+    private void OnDiscardClicked()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.battleManager == null) return;
+        if (gm.battleManager.battleState != BattleManager.BattleState.PlayerTurn) return;
+
+        var selected = CardController.GetSelectedCard();
+        if (selected == null || selected.cardData == null)
+        {
+            gm.battleManager.AddBattleLog("<color=#FFAA44>捨てるカードをクリックで選択してください</color>");
+            return;
+        }
+
+        string kanjiName = selected.cardData.kanji;
+        gm.hand.Remove(selected.cardData);
+        gm.discardPile.Add(selected.cardData);
+
+        CardController.ClearAllFusionButtons();
+        Destroy(selected.gameObject);
+
+        gm.battleManager.AddBattleLog($"<color=#AAAAAA>『{kanjiName}』を捨てた（次ターンに補充）</color>");
+        StartCoroutine(DelayedUpdateHand());
     }
 
     /// <summary>

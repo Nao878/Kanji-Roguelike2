@@ -74,7 +74,12 @@ public class CardController : MonoBehaviour,
         if (data == null) return;
 
         if (kanjiText != null) kanjiText.text = data.kanji;
-        if (costText != null) costText.gameObject.SetActive(false); // AP消費量は全カード1に統一
+        if (costText != null)
+        {
+            costText.text = data.cost.ToString();
+            costText.color = data.cost >= 1 ? new Color(1f, 0.6f, 0.2f) : new Color(0.5f, 0.8f, 0.5f);
+            costText.gameObject.SetActive(true);
+        }
         if (descriptionText != null) descriptionText.text = data.description;
 
         // 効果タイプに応じた背景色
@@ -207,8 +212,8 @@ public class CardController : MonoBehaviour,
             return true;
         }
 
-        // 通常のカード使用（全カード消費AP一律1）
-        int actualCost = 1;
+        // AP消費: 攻撃系は1、バフ・防御・ドロー等は0（EnforceCardBalancePatchesで設定済み）
+        int actualCost = cardData != null ? cardData.cost : 1;
         if (gm.playerMana < actualCost)
         {
             Debug.Log($"[CardController] マナ不足！ 必要:{actualCost} 現在:{gm.playerMana}");
@@ -742,7 +747,8 @@ public class CardController : MonoBehaviour,
             var gmInner = GameManager.Instance;
             if (gmInner == null || selfRef == null || selfRef.cardData == null) return;
 
-            int cost = 1; // 全カード消費AP一律1
+            // AP消費: 攻撃系は1、バフ・防御・ドロー等は0
+            int cost = selfRef.cardData.cost;
             if (gmInner.playerMana < cost)
             {
                 var buiInner = gmInner.battleManager?.battleUI;
@@ -751,10 +757,10 @@ public class CardController : MonoBehaviour,
                 return;
             }
 
-            gmInner.battleManager.PlayCard(selfRef.cardData);
-            selfRef.onCardUsed?.Invoke();
-            selfRef.onHandChanged?.Invoke();
-            UnityEngine.Object.Destroy(selfRef.gameObject);
+            gmInner.battleManager.PlayCard(selfRef?.cardData);
+            selfRef?.onCardUsed?.Invoke();
+            selfRef?.onHandChanged?.Invoke();
+            if (selfRef != null) UnityEngine.Object.Destroy(selfRef.gameObject);
         });
 
         activeAttackButton = btnGo;
@@ -963,6 +969,11 @@ public class CardController : MonoBehaviour,
 
         activeFusionButtons.Add(btnObj);
     }
+
+    /// <summary>
+    /// 現在選択中のカードを返す（捨てるボタン等で使用）
+    /// </summary>
+    public static CardController GetSelectedCard() => selectedCard;
 
     /// <summary>
     /// 全ての合体ボタン・攻撃ボタンをクリアし、選択状態を解除

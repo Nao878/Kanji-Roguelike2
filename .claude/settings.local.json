@@ -27,7 +27,9 @@
       "PowerShell(Get-Item *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\yanao\\\\Github2\\\\Kanji-Roguelike2\\\\Assets\\\\Scripts\" -Recurse -Filter \"*.cs\")",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Sort-Object)"
+      "Bash(Sort-Object)",
+      "Bash(not exist *)",
+      "PowerShell(New-Item *)"
     ]
   }
 }

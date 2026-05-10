@@ -145,12 +145,12 @@ public class BattleManager : MonoBehaviour
             wolfBossManager.InitForWolfBoss();
         }
 
-        // 鬼ボス戦闘の場合はOniBossManagerを初期化
+        // 鬼ボス戦闘の場合はBGMを予約し、OniBossManagerをアタッチ（UIは遷移後に初期化）
         if (enemy.isOniBoss)
         {
-            if (AudioManager.Instance != null) AudioManager.Instance.SetOniBossBGM(); 
-            if (oniBossManager == null) oniBossManager = gameObject.AddComponent<OniBossManager>();
-            oniBossManager.InitForOniBoss();
+            if (AudioManager.Instance != null) AudioManager.Instance.SetOniBossBGM();
+            if (oniBossManager != null) { Destroy(oniBossManager); oniBossManager = null; }
+            oniBossManager = gameObject.AddComponent<OniBossManager>();
         }
 
         // 3秒間の開戦トランジション演出（BGMはTransitionManager内で再生開始）
@@ -178,6 +178,12 @@ public class BattleManager : MonoBehaviour
         if (battleUI != null)
         {
             battleUI.ResetEnemyDisplay();
+        }
+
+        // 鬼ボス: バトルUIが有効になった後にカウントダウンUIを初期化
+        if (currentEnemyData != null && currentEnemyData.isOniBoss && oniBossManager != null)
+        {
+            oniBossManager.InitForOniBoss();
         }
 
         // GameManagerにステート変更を通知
@@ -637,21 +643,46 @@ public class BattleManager : MonoBehaviour
 
             battleState = BattleState.Won;
             int goldReward = 15;
+            KanjiCardData droppedCard = null;
+
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.playerGold += goldReward;
 
-                // ドロップカード処理：敵の漢字をインベントリに追加
                 if (currentEnemyData.dropCard != null)
                 {
                     bool added = GameManager.Instance.AddToInventory(currentEnemyData.dropCard);
                     if (added)
                     {
+                        droppedCard = currentEnemyData.dropCard;
                         AddBattleLog($"<color=#FFD700>『{currentEnemyData.dropCard.kanji}』を手に入れた！</color>");
                     }
                     else
                     {
                         AddBattleLog($"<color=#FF6666>インベントリが満杯…『{currentEnemyData.dropCard.kanji}』を諦めた</color>");
+                    }
+                }
+                else if (currentEnemyData.enemyType == EnemyType.Normal)
+                {
+                    // 雑魚敵はdropCardが未設定でも敵の漢字カードを自動ドロップ
+                    var autoCard = ScriptableObject.CreateInstance<KanjiCardData>();
+                    autoCard.kanji = currentEnemyData.displayKanji;
+                    autoCard.cardName = currentEnemyData.enemyName;
+                    autoCard.description = "戦利品";
+                    autoCard.cost = 1;
+                    autoCard.effectValue = 3;
+                    autoCard.effectType = CardEffectType.Attack;
+                    autoCard.componentCount = currentEnemyData.componentCount;
+                    autoCard.cardId = 9000 + Mathf.Abs(currentEnemyData.displayKanji.GetHashCode()) % 999;
+                    bool added = GameManager.Instance.AddToInventory(autoCard);
+                    if (added)
+                    {
+                        droppedCard = autoCard;
+                        AddBattleLog($"<color=#FFD700>『{autoCard.kanji}』を手に入れた！</color>");
+                    }
+                    else
+                    {
+                        AddBattleLog($"<color=#FF6666>インベントリが満杯…</color>");
                     }
                 }
             }
@@ -660,19 +691,19 @@ public class BattleManager : MonoBehaviour
 
             if (AudioManager.Instance != null) AudioManager.Instance.PlaySE(AudioManager.Instance.seBlow3);
 
-            // CFXR敵討伐エフェクト再生後にフィールドへ戻る
+            // CFXR敵討伐エフェクト → ResultUI → フィールドへ戻る
             if (VFXManager.Instance != null && battleUI != null && battleUI.enemyKanjiText != null)
             {
+                KanjiCardData capturedDrop = droppedCard;
                 VFXManager.Instance.PlayEnemyDeathVFX(battleUI.enemyKanjiText.transform.position, () =>
                 {
-                    // 敵表示を非表示にしてからフィールドに戻る
                     if (battleUI.enemyArea != null) battleUI.enemyArea.SetActive(false);
-                    ReturnToField();
+                    ShowResultUI(capturedDrop, ReturnToField);
                 });
             }
             else
             {
-                Invoke(nameof(ReturnToField), 1.5f);
+                ShowResultUI(droppedCard, () => Invoke(nameof(ReturnToField), 1.5f));
             }
         }
         else if (GameManager.Instance != null && GameManager.Instance.playerHP <= 0)
@@ -694,6 +725,115 @@ public class BattleManager : MonoBehaviour
                 GameManager.Instance.gameOverPanel.SetActive(true);
             }
         }
+    }
+
+    /// <summary>
+    /// ペルソナ風リザルト画面を表示してからコールバックを呼ぶ
+    /// </summary>
+    private void ShowResultUI(KanjiCardData droppedCard, System.Action onComplete)
+    {
+        if (battleUI == null) { onComplete?.Invoke(); return; }
+        StartCoroutine(CoShowResultUI(droppedCard, onComplete));
+    }
+
+    private System.Collections.IEnumerator CoShowResultUI(KanjiCardData droppedCard, System.Action onComplete)
+    {
+        var canvas = battleUI.GetComponentInParent<Canvas>();
+        if (canvas == null) { onComplete?.Invoke(); yield break; }
+
+        var panelGo = new GameObject("ResultPanel");
+        panelGo.transform.SetParent(canvas.transform, false);
+        panelGo.transform.SetAsLastSibling();
+
+        var panelRect = panelGo.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.15f, 0.25f);
+        panelRect.anchorMax = new Vector2(0.85f, 0.75f);
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+
+        var panelBg = panelGo.AddComponent<UnityEngine.UI.Image>();
+        panelBg.color = new Color(0.04f, 0.04f, 0.1f, 0.97f);
+
+        // 装飾ライン（上）
+        var lineTopGo = new GameObject("LineTop");
+        lineTopGo.transform.SetParent(panelGo.transform, false);
+        var lineTopRect = lineTopGo.AddComponent<RectTransform>();
+        lineTopRect.anchorMin = new Vector2(0.05f, 0.88f);
+        lineTopRect.anchorMax = new Vector2(0.95f, 0.9f);
+        lineTopRect.offsetMin = Vector2.zero;
+        lineTopRect.offsetMax = Vector2.zero;
+        lineTopGo.AddComponent<UnityEngine.UI.Image>().color = new Color(1f, 0.85f, 0.1f, 0.8f);
+
+        // 装飾ライン（下）
+        var lineBotGo = new GameObject("LineBot");
+        lineBotGo.transform.SetParent(panelGo.transform, false);
+        var lineBotRect = lineBotGo.AddComponent<RectTransform>();
+        lineBotRect.anchorMin = new Vector2(0.05f, 0.1f);
+        lineBotRect.anchorMax = new Vector2(0.95f, 0.12f);
+        lineBotRect.offsetMin = Vector2.zero;
+        lineBotRect.offsetMax = Vector2.zero;
+        lineBotGo.AddComponent<UnityEngine.UI.Image>().color = new Color(1f, 0.85f, 0.1f, 0.8f);
+
+        // 勝利テキスト
+        var winGo = new GameObject("WinText");
+        winGo.transform.SetParent(panelGo.transform, false);
+        var winRect = winGo.AddComponent<RectTransform>();
+        winRect.anchorMin = new Vector2(0f, 0.55f);
+        winRect.anchorMax = new Vector2(1f, 0.92f);
+        winRect.offsetMin = Vector2.zero;
+        winRect.offsetMax = Vector2.zero;
+        var winTmp = winGo.AddComponent<TMPro.TextMeshProUGUI>();
+        winTmp.text = "勝　利！";
+        winTmp.fontSize = 52;
+        winTmp.fontStyle = TMPro.FontStyles.Bold;
+        winTmp.alignment = TMPro.TextAlignmentOptions.Center;
+        winTmp.color = new Color(1f, 0.92f, 0.15f);
+        if (battleUI.appFont != null) winTmp.font = battleUI.appFont;
+
+        // 獲得カードテキスト
+        if (droppedCard != null)
+        {
+            var rewardGo = new GameObject("RewardText");
+            rewardGo.transform.SetParent(panelGo.transform, false);
+            var rewardRect = rewardGo.AddComponent<RectTransform>();
+            rewardRect.anchorMin = new Vector2(0f, 0.15f);
+            rewardRect.anchorMax = new Vector2(1f, 0.55f);
+            rewardRect.offsetMin = Vector2.zero;
+            rewardRect.offsetMax = Vector2.zero;
+            var rewardTmp = rewardGo.AddComponent<TMPro.TextMeshProUGUI>();
+            rewardTmp.text = $"獲得: 『{droppedCard.kanji}』";
+            rewardTmp.fontSize = 30;
+            rewardTmp.alignment = TMPro.TextAlignmentOptions.Center;
+            rewardTmp.color = new Color(1f, 0.75f, 0.4f);
+            if (battleUI.appFont != null) rewardTmp.font = battleUI.appFont;
+        }
+
+        var cg = panelGo.AddComponent<CanvasGroup>();
+        cg.alpha = 0f;
+
+        // フェードイン
+        float t = 0f;
+        while (t < 0.25f)
+        {
+            t += Time.deltaTime;
+            cg.alpha = Mathf.Clamp01(t / 0.25f);
+            yield return null;
+        }
+        cg.alpha = 1f;
+
+        yield return new WaitForSeconds(1.3f);
+
+        // フェードアウト
+        t = 0f;
+        while (t < 0.25f)
+        {
+            t += Time.deltaTime;
+            cg.alpha = 1f - Mathf.Clamp01(t / 0.25f);
+            yield return null;
+        }
+
+        Destroy(panelGo);
+        onComplete?.Invoke();
     }
 
     private void ReturnToField()
