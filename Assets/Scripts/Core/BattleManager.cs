@@ -264,12 +264,6 @@ public class BattleManager : MonoBehaviour
         ApplyCardEffect(card);
         CheckBattleEnd();
 
-        // カード使用後に1枚ドロー（手札上限以下の場合のみ・戦闘継続中のみ）
-        if (battleState == BattleState.PlayerTurn && gm.hand.Count < gm.initialHandSize)
-        {
-            gm.DrawFromDeck(1);
-        }
-
         UpdateUI();
         if (battleUI != null)
         {
@@ -452,14 +446,25 @@ public class BattleManager : MonoBehaviour
                 break;
 
             case CardEffectType.Heal:
-                int healVal = card.effectValue + card.defenseModifier;
-                gm.Heal(healVal);
-                AddBattleLog($"『{card.DisplayName}』でHP{healVal}回復！");
-                if (VFXManager.Instance != null && battleUI != null && battleUI.playerHPText != null)
+                // HP回復 → シールド1枚追加（シールドライフ化）
+                KanjiCardData newShield = null;
+                if (gm.drawPile.Count > 0) { newShield = gm.drawPile[0]; gm.drawPile.RemoveAt(0); }
+                else if (gm.discardPile.Count > 0) { newShield = gm.discardPile[gm.discardPile.Count - 1]; gm.discardPile.RemoveAt(gm.discardPile.Count - 1); }
+                else if (gm.inventory.Count > 0) { newShield = gm.inventory[UnityEngine.Random.Range(0, gm.inventory.Count)]; }
+                if (newShield != null)
                 {
-                    VFXManager.Instance.PlayHealVFX(battleUI.playerHPText.transform.position);
-                    VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, healVal);
+                    gm.shields.Add(newShield);
+                    AddBattleLog($"<color=#00AAFF>『{card.DisplayName}』でシールドを1枚追加！（合計{gm.shields.Count}枚）</color>");
+                    if (battleUI != null) battleUI.UpdateShieldUI();
                 }
+                else
+                {
+                    int healVal = card.effectValue + card.defenseModifier;
+                    gm.Heal(healVal);
+                    AddBattleLog($"『{card.DisplayName}』でHP{healVal}回復！");
+                }
+                if (VFXManager.Instance != null && battleUI != null && battleUI.playerHPText != null)
+                    VFXManager.Instance.PlayDefenseVFX(battleUI.playerHPText.transform.position);
                 break;
 
             case CardEffectType.Buff:
@@ -849,21 +854,19 @@ public class BattleManager : MonoBehaviour
 
     private void ReturnToField()
     {
-        // BPM波紋エフェクト停止
         if (bpmRipple != null) bpmRipple.SetActive(false);
-
-        // BGMフェードしてフィールドBGMへ
         if (AudioManager.Instance != null) AudioManager.Instance.PlayFieldBGM();
 
-        // フィールドマネージャーに勝利通知
-        if (GameManager.Instance != null && GameManager.Instance.fieldManager != null)
-        {
-            GameManager.Instance.fieldManager.OnBattleWon();
-        }
-
-        // 手札はクリアしない（持ち越しシステム）
         if (GameManager.Instance != null)
         {
+            if (GameManager.Instance.routeMapManager != null)
+            {
+                GameManager.Instance.routeMapManager.OnBattleWon();
+            }
+            else if (GameManager.Instance.fieldManager != null)
+            {
+                GameManager.Instance.fieldManager.OnBattleWon();
+            }
             GameManager.Instance.ChangeState(GameState.Field);
         }
     }

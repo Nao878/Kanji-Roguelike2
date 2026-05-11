@@ -58,7 +58,10 @@ public class GameManager : MonoBehaviour
 
     [Header("シールドシステム")]
     public List<KanjiCardData> shields = new List<KanjiCardData>();
-    public int maxShields = 3;
+    public int maxShields = 7;
+
+    [Header("ルートマップ（Slay the Spire型）")]
+    public RouteMapManager routeMapManager;
 
     public void ShowFusionSelectionUI(List<int> resultIds, System.Action<int> onSelected)
     {
@@ -237,12 +240,21 @@ public class GameManager : MonoBehaviour
         playerDefenseBuff = 0;
         playerGold = startGold;
 
+        // 引き継ぎ強化をGameManagerに適用（手札・シールド初期値ボーナス）
+        PersistenceManager.ApplyInheritUpgrades(this);
+
         // DeckManagerが未設定なら動的生成
         if (deckManager == null)
         {
             var dmGo = new GameObject("DeckManager");
             deckManager = dmGo.AddComponent<DeckManager>();
             Debug.Log("[GameManager] DeckManagerを動的生成しました");
+        }
+
+        // RouteMapManagerが未設定なら自動追加（Slay the Spire型マップ）
+        if (routeMapManager == null)
+        {
+            routeMapManager = gameObject.AddComponent<RouteMapManager>();
         }
 
         Debug.Log($"[GameManager] ゲーム初期化完了 HP:{playerHP} マナ:{playerMana} インベントリ:{inventory.Count}枚");
@@ -317,8 +329,9 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[GameManager] ステート変更: {newState}");
 
         // UIパネルの表示切替
-        if (fieldPanel != null) fieldPanel.SetActive(newState == GameState.Field);
-        if (mapPanel != null) mapPanel.SetActive(false); // マップは常に非表示
+        bool useRouteMap = (routeMapManager != null);
+        if (fieldPanel != null) fieldPanel.SetActive(newState == GameState.Field && !useRouteMap);
+        if (mapPanel != null) mapPanel.SetActive(false);
         if (battlePanel != null) battlePanel.SetActive(newState == GameState.Battle);
         if (fusionPanel != null) fusionPanel.SetActive(newState == GameState.Fusion);
         if (shopPanel != null) shopPanel.SetActive(newState == GameState.Shop);
@@ -329,7 +342,10 @@ public class GameManager : MonoBehaviour
         switch (newState)
         {
             case GameState.Field:
-                if (fieldManager != null) fieldManager.ShowField();
+                if (routeMapManager != null)
+                    routeMapManager.ShowMap();
+                else if (fieldManager != null)
+                    fieldManager.ShowField();
                 break;
             case GameState.Battle:
                 // BattleManagerがStartBattleを呼び出す
@@ -338,11 +354,9 @@ public class GameManager : MonoBehaviour
                 break;
             case GameState.GameOver:
                 Debug.Log("[GameManager] ゲームオーバー！");
-                // ゲームオーバーパネルを表示
+                PersistenceManager.OnGameOver(routeMapManager);
                 if (gameOverPanel != null)
-                {
                     gameOverPanel.SetActive(true);
-                }
                 break;
         }
     }

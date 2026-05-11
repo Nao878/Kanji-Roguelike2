@@ -426,7 +426,7 @@ public class VFXManager : MonoBehaviour
         textRect.sizeDelta = new Vector2(600f, 200f);
 
         var tmp = textObj.AddComponent<TextMeshProUGUI>();
-        tmp.text = "1 MORE";
+        tmp.text = "1 DRAW!";
         tmp.fontSize = 120;
         tmp.color = new Color(1f, 0.84f, 0f, 1f);
         tmp.alignment = TextAlignmentOptions.Center;
