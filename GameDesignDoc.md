@@ -31,16 +31,22 @@
 2. ターン終了ボタンで敵ターンへ
 3. 敵攻撃 → プレイヤーターンへ戻る
 
-### APレスシステム（AP廃止）
-- **APシステムは完全廃止**。すべてのカードはコスト0で使い放題。
-- `GameManager.EnforceCardBalancePatches()` が全カードコストを0に統一する。
-- カードに表示されるコスト表示も非表示に変更済み。
+### APシステム（行動値）
+- **初期AP / ターン最大AP**: 3（`GameManager.playerStartMana = 3`）
+- **ターン開始時**: APが3に全回復（`StartPlayerTurn()` → `playerMana = playerMaxMana`）
+- **AP消費コスト**:
+  - **AP:1** → Attack / AttackAll / Heal / Special / Stun カード
+  - **AP:0** → Buff / Defense / Draw / Shop カード
+- **ドローボタン**: AP1消費で山札から1枚引く
+- **AP不足時**: AP表示が赤く点滅＋エラーSE再生（`ShowAPError()`）
+- **カードコスト表示**: AP:1のカードはコスト枠に「AP:1」と表示
+- `GameManager.GetCardAPCost(card)` でカードタイプ別コストを判定
 
-### ドローシステム（Slay the Spire式）
-- **カード使用 → 自動ドローなし**：`PlayCard()` 後は自動補充しない。手動プレイが基本
-- **合体成功 → 2枚ドロー**：Enemy Fusion Break や手動合体成功時に最大2枚補充（「1 DRAW!」VFX表示）
-- **Mirror Clash（相殺）→ 1枚ドロー**：相殺成功時にボーナスドロー1枚
-- 捨てるボタン廃止：手札管理は合体・直接使用で行う
+### ドロー・ボーナスシステム
+- **カード使用 → 自動ドローなし**：`PlayCard()` 後は自動補充しない。手動ドロー（AP消費）が基本
+- **合体成功 → AP+1（1 MORE!）**：手動合体・Enemy Fusion Break 成功時にAP1回復（「1 MORE!」VFX表示）
+- **Mirror Clash（相殺）→ 1枚ドロー**：相殺成功時にボーナスドロー1枚（APコストなし）
+- 捨てるボタン廃止：手札管理は合体・ドローボタンで行う
 
 ### ターン終了
 - **プレイヤーが「ターン終了」ボタンを手動で押した場合のみ敵のターンへ移行する**

@@ -12,7 +12,7 @@ public class GameManager : MonoBehaviour
 
     [Header("ゲーム設定")]
     public int playerMaxHP = 50;
-    public int playerStartMana = 1;
+    public int playerStartMana = 3;
     public int initialHandSize = 5;
     public int startGold = 50;
     public int fusionCost = 20;
@@ -292,7 +292,40 @@ public class GameManager : MonoBehaviour
         }
 
         InitializeDeckEditPanel();
+        UpdateHelpPanelText();
         ChangeState(GameState.Field);
+    }
+
+    /// <summary>
+    /// HelpPanelのテキストをAPシステム説明に更新
+    /// </summary>
+    private void UpdateHelpPanelText()
+    {
+        if (helpPanel == null) return;
+        var texts = helpPanel.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true);
+        foreach (var t in texts)
+        {
+            if (t.text.Length > 30 && !t.text.Contains("理解した"))
+            {
+                t.text =
+                    "<b>【行動値 (AP)】</b>\n" +
+                    "カードを使ったりドローするにはAPが必要です。\n" +
+                    "ターン開始時にAPが<color=#00FFFF>3</color>回復します。\n\n" +
+                    "<b>AP消費：1</b>  攻撃・回復・特殊カード\n" +
+                    "<b>AP消費：0</b>  バフ・防御・ドローカード\n\n" +
+                    "<b>【合体で 1 MORE!】</b>\n" +
+                    "漢字を合体させると<color=#FFD700>APが1回復</color>します！\n" +
+                    "AP不足でもコンボを繋げるのが攻略の鍵！\n\n" +
+                    "<b>【ドロー】</b>\n" +
+                    "「ドロー(AP:1)」ボタンで1枚引けます。\n\n" +
+                    "<b>【シールド】</b>\n" +
+                    "青いカードがシールド。ダメージを1回防ぎ、\n" +
+                    "破壊されると手札に加わります（シールドトリガー）。\n\n" +
+                    "<b>操作方法：</b>カードを敵にドラッグ→攻撃\n" +
+                    "カード同士をドラッグ→合体（漢字合成）";
+                break;
+            }
+        }
     }
 
     /// <summary>
@@ -417,14 +450,41 @@ public class GameManager : MonoBehaviour
 
 
     /// <summary>
-    /// カードを使用（APコストなし・循環システム：捨て札へ移動）
+    /// カードのAPコストを返す（Attack/AttackAll/Heal/Special = 1, その他 = 0）
+    /// </summary>
+    public static int GetCardAPCost(KanjiCardData card)
+    {
+        if (card == null) return 0;
+        switch (card.effectType)
+        {
+            case CardEffectType.Attack:
+            case CardEffectType.AttackAll:
+            case CardEffectType.Heal:
+            case CardEffectType.Special:
+            case CardEffectType.Stun:
+                return 1;
+            default:
+                return 0;
+        }
+    }
+
+    /// <summary>
+    /// カードを使用（APコスト消費・循環システム：捨て札へ移動）
+    /// AP不足の場合はfalseを返す
     /// </summary>
     public bool UseCard(KanjiCardData card)
     {
+        int apCost = GetCardAPCost(card);
+        if (apCost > 0 && playerMana < apCost)
+        {
+            Debug.Log($"[GameManager] AP不足！ 必要:{apCost} 現在:{playerMana}");
+            return false;
+        }
+        playerMana -= apCost;
         hand.Remove(card);
         discardPile.Add(card); // 捨て札へ
 
-        Debug.Log($"[GameManager] カード使用: {card.kanji}（捨て札へ移動）");
+        Debug.Log($"[GameManager] カード使用: {card.kanji}（AP-{apCost} 残:{playerMana}）");
         return true;
     }
 
@@ -511,11 +571,12 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ターン開始時のリセット（APシステム廃止：マナ加算なし）
+    /// ターン開始時のリセット（APを全回復して手札補充）
     /// </summary>
     public void StartPlayerTurn()
     {
         playerDefenseBuff = 0;
+        playerMana = playerMaxMana; // APをターン開始時に全回復
 
         // 手札補充：手札上限 - 現在の手札枚数だけドロー（差分ドロー方式）
         int drawCount = Mathf.Max(0, initialHandSize - hand.Count);
@@ -524,7 +585,7 @@ public class GameManager : MonoBehaviour
             DrawFromDeck(drawCount);
         }
 
-        Debug.Log($"[GameManager] プレイヤーターン開始 手札:{hand.Count}枚");
+        Debug.Log($"[GameManager] プレイヤーターン開始 AP:{playerMana}/{playerMaxMana} 手札:{hand.Count}枚");
     }
 
 
@@ -653,8 +714,8 @@ public class GameManager : MonoBehaviour
         {
             if (card == null) continue;
 
-            // AP廃止：全カードコスト0（EnforceCardBalancePatches互換のため残す）
-            int targetCost = 0;
+            // APコスト設定：攻撃・治癒・特殊系=1、それ以外=0
+            int targetCost = GetCardAPCost(card);
 
             if (card.cost != targetCost)
             {
@@ -670,11 +731,11 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // インベントリ内のカードにも適用（AP廃止：全コスト0）
+        // インベントリ内のカードにも適用
         foreach (var card in inventory)
         {
             if (card == null) continue;
-            card.cost = 0;
+            card.cost = GetCardAPCost(card);
             if (card.effectType == CardEffectType.Draw && card.effectValue < 2)
                 card.effectValue = 2;
         }

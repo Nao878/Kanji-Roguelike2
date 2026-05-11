@@ -65,10 +65,18 @@ public class BattleUI : MonoBehaviour
             fusionButton.onClick.AddListener(OnFusionClicked);
         }
 
-        // ドローボタンはAP廃止により不要（自動ドローに移行）
+        // ドローボタン復活（AP1消費でドロー）
         if (drawCardButton != null)
         {
-            drawCardButton.gameObject.SetActive(false);
+            drawCardButton.gameObject.SetActive(true);
+            drawCardButton.onClick.AddListener(OnDrawCardClicked);
+        }
+        else
+        {
+            // インスペクタ未設定時は動的生成
+            drawCardButton = CreateDrawButton();
+            if (drawCardButton != null)
+                drawCardButton.onClick.AddListener(OnDrawCardClicked);
         }
 
         // 「逃げる」ボタンを動的生成
@@ -537,19 +545,27 @@ public class BattleUI : MonoBehaviour
     }
 
     /// <summary>
-    /// ドローボタン押下：AP1消費してカードを1枚引く（AP不足時はエフェクト）
+    /// AP不足時の共通エラーフィードバック（赤点滅 + エラーSE）
+    /// </summary>
+    public void ShowAPError()
+    {
+        if (VFXManager.Instance != null && playerManaText != null)
+            VFXManager.Instance.PlayAPShortageEffect(playerManaText.GetComponent<RectTransform>());
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySE(AudioManager.Instance.seButton38);
+    }
+
+    /// <summary>
+    /// ドローボタン押下：AP1消費してカードを1枚引く（AP不足時はエラーフィードバック）
     /// </summary>
     private void OnDrawCardClicked()
     {
         var gm = GameManager.Instance;
         if (gm == null || gm.hand.Count >= gm.initialHandSize) return;
 
-        // APが1以上（消費AP以上）であることを正しく判定する
         if (gm.playerMana < 1)
         {
-            // AP不足フィードバック
-            if (VFXManager.Instance != null && playerManaText != null)
-                VFXManager.Instance.PlayAPShortageEffect(playerManaText.GetComponent<RectTransform>());
+            ShowAPError();
             return;
         }
 
@@ -735,7 +751,11 @@ public class BattleUI : MonoBehaviour
         if (gm == null) return;
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
-        if (playerManaText != null) playerManaText.gameObject.SetActive(false); // AP廃止
+        if (playerManaText != null)
+        {
+            playerManaText.gameObject.SetActive(true);
+            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}";
+        }
 
         if (playerHPBar != null)
         {

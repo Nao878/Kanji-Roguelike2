@@ -74,8 +74,21 @@ public class CardController : MonoBehaviour,
         if (data == null) return;
 
         if (kanjiText != null) kanjiText.text = data.kanji;
-        // AP廃止：コスト表示を非表示
-        if (costText != null) costText.gameObject.SetActive(false);
+        // APコスト表示（1以上のときのみ表示）
+        if (costText != null)
+        {
+            int apCost = GameManager.GetCardAPCost(data);
+            if (apCost > 0)
+            {
+                costText.gameObject.SetActive(true);
+                costText.text = $"AP:{apCost}";
+                costText.color = new Color(0.4f, 0.7f, 1f);
+            }
+            else
+            {
+                costText.gameObject.SetActive(false);
+            }
+        }
         if (descriptionText != null) descriptionText.text = data.description;
 
         // 効果タイプに応じた背景色
@@ -208,7 +221,14 @@ public class CardController : MonoBehaviour,
             return true;
         }
 
-        // AP廃止：コストチェックなしで直接発動
+        // AP不足チェック
+        int apCost = GameManager.GetCardAPCost(cardData);
+        if (apCost > 0 && gm.playerMana < apCost)
+        {
+            gm.battleManager?.battleUI?.ShowAPError();
+            ReturnToHand();
+            return false;
+        }
 
         // カード効果発動
         gm.battleManager.PlayCard(cardData);
@@ -293,12 +313,11 @@ public class CardController : MonoBehaviour,
                 gm.AddToInventory(resultCard);
                 if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultCard.cardId);
 
-                // 合体成功ドロー2枚（AP廃止）
-                int drawCount1 = Mathf.Min(2, gm.initialHandSize - gm.hand.Count);
-                if (drawCount1 > 0) gm.DrawFromDeck(drawCount1);
-                Debug.Log($"[CardController] 合体成功！{drawCount1}枚ドロー");
+                // 合体成功 → AP1回復（1 MORE！）
+                gm.playerMana = Mathf.Min(gm.playerMana + 1, gm.playerMaxMana);
+                Debug.Log($"[CardController] 合体成功！ AP+1（現在:{gm.playerMana}/{gm.playerMaxMana}）");
 
-                // 「1 MORE」巨大VFX表示
+                // 「1 MORE!」巨大VFX表示
                 if (VFXManager.Instance != null) VFXManager.Instance.PlayOneMoreEffect();
 
                 // 古いオブジェクト削除
@@ -320,10 +339,9 @@ public class CardController : MonoBehaviour,
             gm.AddToInventory(resultCard);
             if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultCard.cardId);
 
-            // 合体成功ドロー2枚（AP廃止・Fallback）
-            int drawCount2 = Mathf.Min(2, gm.initialHandSize - gm.hand.Count);
-            if (drawCount2 > 0) gm.DrawFromDeck(drawCount2);
-            Debug.Log($"[CardController] 合体成功！{drawCount2}枚ドロー（Fallback）");
+            // 合体成功 → AP1回復（Fallback）
+            gm.playerMana = Mathf.Min(gm.playerMana + 1, gm.playerMaxMana);
+            Debug.Log($"[CardController] 合体成功！ AP+1（Fallback, 現在:{gm.playerMana}/{gm.playerMaxMana}）");
 
             Destroy(targetCard.gameObject);
             Destroy(gameObject);
@@ -734,7 +752,14 @@ public class CardController : MonoBehaviour,
             var gmInner = GameManager.Instance;
             if (gmInner == null || selfRef == null || selfRef.cardData == null) return;
 
-            // AP廃止：コストチェックなし
+            // AP不足チェック
+            int apCostInner = GameManager.GetCardAPCost(selfRef.cardData);
+            if (apCostInner > 0 && gmInner.playerMana < apCostInner)
+            {
+                gmInner.battleManager?.battleUI?.ShowAPError();
+                return;
+            }
+
             gmInner.battleManager.PlayCard(selfRef?.cardData);
             selfRef?.onCardUsed?.Invoke();
             selfRef?.onHandChanged?.Invoke();

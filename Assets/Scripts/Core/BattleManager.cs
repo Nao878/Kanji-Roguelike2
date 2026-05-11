@@ -314,7 +314,7 @@ public class BattleManager : MonoBehaviour
         {
             isMirrorClash = true;
             attackValue *= 3; // 確定クリティカル（特大ダメージ）
-            // AP廃止により1枚追加ドロー（後のPlayCard内ドローとは別に実施）
+            // Mirror Clash特典：ボーナスドロー1枚（合体AP回復とは別の特殊ボーナス）
             if (gm.hand.Count < gm.initialHandSize) gm.DrawFromDeck(1);
             AddBattleLog("<color=#FF0000><b>相殺（Mirror Clash）発動！特大ダメージ ＆ ボーナスドロー！</b></color>");
             if (VFXManager.Instance != null && battleUI != null)
@@ -952,7 +952,11 @@ public class BattleManager : MonoBehaviour
         if (gm == null) return;
 
         if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
-        if (playerManaText != null) playerManaText.gameObject.SetActive(false); // AP廃止
+        if (playerManaText != null)
+        {
+            playerManaText.gameObject.SetActive(true);
+            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}";
+        }
 
         if (currentEnemyData != null)
         {

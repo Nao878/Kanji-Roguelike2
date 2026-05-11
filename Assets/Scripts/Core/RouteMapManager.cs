@@ -59,6 +59,18 @@ public class RouteMapManager : MonoBehaviour
         if (!isInitialized)
         {
             appFont = FindObjectOfType<BattleUI>()?.appFont;
+            if (appFont == null)
+            {
+                var allFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+                foreach (var f in allFonts)
+                {
+                    if (f.name.Contains("AppFont") || f.name.Contains("JP") || f.name.Contains("Noto"))
+                    {
+                        appFont = f;
+                        break;
+                    }
+                }
+            }
             FindMapCanvas();
             GenerateRouteGraph();
             isInitialized = true;
@@ -164,7 +176,7 @@ public class RouteMapManager : MonoBehaviour
 
         mapPanel = new GameObject("RouteMapPanel");
         mapPanel.transform.SetParent(mapCanvas.transform, false);
-        mapPanel.transform.SetAsFirstSibling();
+        // Remove SetAsFirstSibling so it draws on top of BackgroundPanel
 
         var bg = mapPanel.AddComponent<RectTransform>();
         bg.anchorMin = Vector2.zero;
