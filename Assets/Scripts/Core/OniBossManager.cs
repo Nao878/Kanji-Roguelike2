@@ -27,44 +27,63 @@ public class OniBossManager : MonoBehaviour
     {
         if (countdownUIObj != null) return;
 
-        // 専用Canvasを作成（最前面に表示するため Screen Space Overlay で高 Sorting Order を設定）
+        // 専用Canvasを作成（最前面に表示）
         var canvasGo = new GameObject("OniCountdownCanvas");
         countdownCanvas = canvasGo.AddComponent<Canvas>();
         countdownCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         countdownCanvas.sortingOrder = 9000;
-        canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        var scaler = canvasGo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080, 1920);
 
+        // 赤い背景コンテナ（敵キャラクター頭上・右寄りに配置）
+        var containerGo = new GameObject("OniCountdownContainer");
+        containerGo.transform.SetParent(canvasGo.transform, false);
+        var containerRect = containerGo.AddComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.60f, 0.58f);
+        containerRect.anchorMax = new Vector2(0.90f, 0.80f);
+        containerRect.offsetMin = Vector2.zero;
+        containerRect.offsetMax = Vector2.zero;
+        var containerImg = containerGo.AddComponent<Image>();
+        containerImg.color = new Color(0.70f, 0.05f, 0.05f, 0.88f);
+        var containerOutline = containerGo.AddComponent<Outline>();
+        containerOutline.effectColor = new Color(1f, 0.3f, 0.3f, 0.95f);
+        containerOutline.effectDistance = new Vector2(4f, -4f);
+
+        // カウントダウンテキスト（赤背景の子要素）
         countdownUIObj = new GameObject("OniCountdownText");
-        countdownUIObj.transform.SetParent(canvasGo.transform, false);
+        countdownUIObj.transform.SetParent(containerGo.transform, false);
 
-        RectTransform rt = countdownUIObj.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(1f, 0.5f);
-        rt.anchorMax = new Vector2(1f, 0.5f);
-        rt.pivot = new Vector2(1f, 0.5f);
-        rt.anchoredPosition = new Vector2(-40f, 0f); // 右端寄り
-        rt.sizeDelta = new Vector2(220f, 220f);
+        var rt = countdownUIObj.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
 
         countdownText = countdownUIObj.AddComponent<TextMeshProUGUI>();
-        countdownText.fontSize = 160;
-        countdownText.color = new Color(1f, 0.1f, 0.1f, 0.9f);
+        countdownText.fontSize = 100;
+        countdownText.color = new Color(1f, 0.96f, 0.88f, 1f);
         countdownText.alignment = TextAlignmentOptions.Center;
         countdownText.enableWordWrapping = false;
 
-        // AppFont SDF を適用
-        var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-        foreach (var f in fonts)
+        // AppFont SDF を適用（BattleUIのフォントを優先的に取得）
+        var bui = GetComponent<BattleManager>()?.battleUI;
+        if (bui != null && bui.appFont != null)
         {
-            if (f.name.Contains("AppFont") || f.name.Contains("SDF") || f.name.Contains("JP"))
+            countdownText.font = bui.appFont;
+        }
+        else
+        {
+            var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            foreach (var f in fonts)
             {
-                countdownText.font = f;
-                break;
+                if (f.name.Contains("AppFont") || f.name.Contains("NotoSans") || f.name.Contains("JP"))
+                {
+                    countdownText.font = f;
+                    break;
+                }
             }
         }
-
-        // アウトラインで視認性向上
-        var outline = countdownUIObj.AddComponent<Outline>();
-        outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-        outline.effectDistance = new Vector2(4f, -4f);
     }
 
     private void UpdateCountdownUI()
@@ -124,7 +143,6 @@ public class OniBossManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (countdownUIObj != null) Destroy(countdownUIObj);
         if (countdownCanvas != null) Destroy(countdownCanvas.gameObject);
     }
 }

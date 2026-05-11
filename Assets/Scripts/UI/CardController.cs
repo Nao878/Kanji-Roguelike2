@@ -328,9 +328,9 @@ public class CardController : MonoBehaviour,
                 gm.AddToInventory(resultCard);
                 if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultCard.cardId);
 
-                // 合体成功 → AP1回復（1 MORE！）
-                gm.playerMana = Mathf.Min(gm.playerMana + 1, gm.playerMaxMana);
-                Debug.Log($"[CardController] 合体成功！ AP+1（現在:{gm.playerMana}/{gm.playerMaxMana}）");
+                // 合体成功 → AP1回復（1 MORE！・上限なし）
+                gm.playerMana += 1;
+                Debug.Log($"[CardController] 合体成功！ AP+1（現在:{gm.playerMana}）");
 
                 // 「1 MORE!」巨大VFX表示
                 if (VFXManager.Instance != null) VFXManager.Instance.PlayOneMoreEffect();
@@ -354,9 +354,9 @@ public class CardController : MonoBehaviour,
             gm.AddToInventory(resultCard);
             if (EncyclopediaManager.Instance != null) EncyclopediaManager.Instance.UnlockCard(resultCard.cardId);
 
-            // 合体成功 → AP1回復（Fallback）
-            gm.playerMana = Mathf.Min(gm.playerMana + 1, gm.playerMaxMana);
-            Debug.Log($"[CardController] 合体成功！ AP+1（Fallback, 現在:{gm.playerMana}/{gm.playerMaxMana}）");
+            // 合体成功 → AP1回復（Fallback・上限なし）
+            gm.playerMana += 1;
+            Debug.Log($"[CardController] 合体成功！ AP+1（Fallback, 現在:{gm.playerMana}）");
 
             Destroy(targetCard.gameObject);
             Destroy(gameObject);

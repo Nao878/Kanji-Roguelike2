@@ -586,7 +586,7 @@ public class GameManager : MonoBehaviour
     public void StartPlayerTurn()
     {
         playerDefenseBuff = 0;
-        playerMana = playerMaxMana; // APをターン開始時に全回復
+        playerMana += playerStartMana; // APをターン開始時に加算（上限なし・累積）
 
         // 手札補充：手札上限 - 現在の手札枚数だけドロー（差分ドロー方式）
         int drawCount = Mathf.Max(0, initialHandSize - hand.Count);
@@ -595,7 +595,7 @@ public class GameManager : MonoBehaviour
             DrawFromDeck(drawCount);
         }
 
-        Debug.Log($"[GameManager] プレイヤーターン開始 AP:{playerMana}/{playerMaxMana} 手札:{hand.Count}枚");
+        Debug.Log($"[GameManager] プレイヤーターン開始 AP:{playerMana} 手札:{hand.Count}枚");
     }
 
 

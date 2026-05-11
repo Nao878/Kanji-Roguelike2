@@ -955,7 +955,7 @@ public class BattleManager : MonoBehaviour
         if (playerManaText != null)
         {
             playerManaText.gameObject.SetActive(true);
-            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}";
+            playerManaText.text = $"AP: {gm.playerMana}";
         }
 
         if (currentEnemyData != null)

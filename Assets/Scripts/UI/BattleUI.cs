@@ -48,6 +48,7 @@ public class BattleUI : MonoBehaviour
     // シールドUI
     private Transform shieldContainer;
     private List<GameObject> shieldUIObjects = new List<GameObject>();
+    private TextMeshProUGUI _shieldCountText;
 
     // 店選択UI
     private GameObject shopSelectionPanel;
@@ -795,7 +796,7 @@ public class BattleUI : MonoBehaviour
             string buffText = "";
             if (gm.playerAttackBuff > 0) buffText += $" 攻↑+{gm.playerAttackBuff}";
             if (gm.playerDefenseBuff > 0) buffText += $" 防↑+{gm.playerDefenseBuff}";
-            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}{buffText}";
+            playerManaText.text = $"AP: {gm.playerMana}{buffText}";
         }
 
         if (gm.battleManager != null && gm.battleManager.currentEnemyData != null)
@@ -865,6 +866,27 @@ public class BattleUI : MonoBehaviour
         hLayout.padding = new RectOffset(2, 2, 2, 2);
 
         shieldContainer = containerGo.transform;
+
+        // HP:シールド数テキスト（シールドコンテナの真上に大きく表示）
+        var hpLabelGo = new GameObject("ShieldCountLabel");
+        hpLabelGo.transform.SetParent(canvas.transform, false);
+        var hpLabelRect = hpLabelGo.AddComponent<RectTransform>();
+        hpLabelRect.anchorMin = new Vector2(0f, 1f);
+        hpLabelRect.anchorMax = new Vector2(0f, 1f);
+        hpLabelRect.pivot = new Vector2(0f, 1f);
+        hpLabelRect.anchoredPosition = new Vector2(8f, -8f);
+        hpLabelRect.sizeDelta = new Vector2(150f, 48f);
+        _shieldCountText = hpLabelGo.AddComponent<TextMeshProUGUI>();
+        _shieldCountText.text = "HP: --";
+        _shieldCountText.fontSize = 34f;
+        _shieldCountText.fontStyle = TMPro.FontStyles.Bold;
+        _shieldCountText.alignment = TMPro.TextAlignmentOptions.Left;
+        _shieldCountText.color = new Color(0.45f, 0.88f, 1f, 1f);
+        _shieldCountText.raycastTarget = false;
+        if (appFont != null) _shieldCountText.font = appFont;
+        var hpOutline = hpLabelGo.AddComponent<Outline>();
+        hpOutline.effectColor = new Color(0f, 0.05f, 0.2f, 0.9f);
+        hpOutline.effectDistance = new Vector2(1.8f, -1.8f);
     }
 
     /// <summary>
@@ -966,6 +988,15 @@ public class BattleUI : MonoBehaviour
             emTmp.raycastTarget = false;
             if (appFont != null) emTmp.font = appFont;
             shieldUIObjects.Add(emptyGo);
+        }
+
+        // HP:シールド数テキストを更新
+        if (_shieldCountText != null)
+        {
+            _shieldCountText.text = $"HP: {actualCount}";
+            _shieldCountText.color = actualCount == 0
+                ? new Color(1f, 0.25f, 0.25f, 1f)
+                : new Color(0.45f, 0.88f, 1f, 1f);
         }
     }
 
