@@ -43,7 +43,7 @@ public class BattleUI : MonoBehaviour
     private Image _drawButtonGlowOverlay;
     private TextMeshProUGUI _drawButtonWarningText;
     private GameObject _drawButtonStrikeline;
-    private Coroutine _drawPulseCoroutine;
+    private bool _drawPulseActive;
 
     // シールドUI
     private Transform shieldContainer;
@@ -112,6 +112,17 @@ public class BattleUI : MonoBehaviour
         AddTextOutline(enemyHPText, new Color(0.3f, 0f, 0f, 0.85f));
         AddTextOutline(enemyKanjiText, new Color(0.4f, 0f, 0f, 0.9f), 2f);
         AddTextOutline(battleLogText, new Color(0f, 0f, 0f, 0.8f));
+    }
+
+    private void Update()
+    {
+        if (_drawPulseActive && _drawButtonGlowOverlay != null)
+        {
+            float alpha = (Mathf.Sin(Time.unscaledTime * 2.4f) * 0.5f + 0.5f) * 0.28f;
+            var c = _drawButtonGlowOverlay.color;
+            c.a = alpha;
+            _drawButtonGlowOverlay.color = c;
+        }
     }
 
     /// <summary>
@@ -1000,7 +1011,7 @@ public class BattleUI : MonoBehaviour
         warnRect.offsetMin = new Vector2(2f, 2f);
         warnRect.offsetMax = new Vector2(-2f, 0f);
         _drawButtonWarningText = warnGo.AddComponent<TextMeshProUGUI>();
-        _drawButtonWarningText.text = "行動値不足";
+        _drawButtonWarningText.text = "AP不足";
         _drawButtonWarningText.fontSize = 10f;
         _drawButtonWarningText.color = new Color(1f, 0.3f, 0.3f, 1f);
         _drawButtonWarningText.fontStyle = TMPro.FontStyles.Bold;
@@ -1038,72 +1049,13 @@ public class BattleUI : MonoBehaviour
             img.color = c;
         }
 
-        // 明滅コルーチン制御
-        if (canPulse)
+        // グローバル時間同期の明滅制御
+        _drawPulseActive = canPulse;
+        if (!canPulse && _drawButtonGlowOverlay != null)
         {
-            if (_drawPulseCoroutine == null)
-                _drawPulseCoroutine = StartCoroutine(PulseDrawButton());
-        }
-        else
-        {
-            if (_drawPulseCoroutine != null)
-            {
-                StopCoroutine(_drawPulseCoroutine);
-                _drawPulseCoroutine = null;
-            }
-            if (_drawButtonGlowOverlay != null)
-            {
-                var c = _drawButtonGlowOverlay.color;
-                c.a = 0f;
-                _drawButtonGlowOverlay.color = c;
-            }
-        }
-    }
-
-    /// <summary>
-    /// ドローボタンをふわっと光らせる（AP1以上・プレイヤーターン時）
-    /// </summary>
-    private System.Collections.IEnumerator PulseDrawButton()
-    {
-        while (true)
-        {
-            yield return new WaitForSeconds(UnityEngine.Random.Range(1.8f, 2.5f));
-
-            float dur = 0.45f;
-            float elapsed = 0f;
-            while (elapsed < dur)
-            {
-                elapsed += Time.deltaTime;
-                if (_drawButtonGlowOverlay != null)
-                {
-                    var c = _drawButtonGlowOverlay.color;
-                    c.a = Mathf.Lerp(0f, 0.28f, elapsed / dur);
-                    _drawButtonGlowOverlay.color = c;
-                }
-                yield return null;
-            }
-
-            yield return new WaitForSeconds(0.15f);
-
-            elapsed = 0f;
-            while (elapsed < dur)
-            {
-                elapsed += Time.deltaTime;
-                if (_drawButtonGlowOverlay != null)
-                {
-                    var c = _drawButtonGlowOverlay.color;
-                    c.a = Mathf.Lerp(0.28f, 0f, elapsed / dur);
-                    _drawButtonGlowOverlay.color = c;
-                }
-                yield return null;
-            }
-
-            if (_drawButtonGlowOverlay != null)
-            {
-                var c = _drawButtonGlowOverlay.color;
-                c.a = 0f;
-                _drawButtonGlowOverlay.color = c;
-            }
+            var c = _drawButtonGlowOverlay.color;
+            c.a = 0f;
+            _drawButtonGlowOverlay.color = c;
         }
     }
 

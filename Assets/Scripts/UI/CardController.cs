@@ -57,7 +57,7 @@ public class CardController : MonoBehaviour,
 
     // 使用可能明滅演出
     [HideInInspector] public Image glowOverlay;
-    private Coroutine _glowPulseCoroutine;
+    private bool _glowActive;
 
     // コールバック
     public System.Action onCardUsed;
@@ -67,6 +67,17 @@ public class CardController : MonoBehaviour,
     {
         rectTransform = GetComponent<RectTransform>();
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
+    }
+
+    private void Update()
+    {
+        if (_glowActive && glowOverlay != null)
+        {
+            float alpha = (Mathf.Sin(Time.unscaledTime * 2.4f) * 0.5f + 0.5f) * 0.32f;
+            var c = glowOverlay.color;
+            c.a = alpha;
+            glowOverlay.color = c;
+        }
     }
 
     /// <summary>
@@ -804,7 +815,7 @@ public class CardController : MonoBehaviour,
             apWarnRect.offsetMin = new Vector2(3f, 2f);
             apWarnRect.offsetMax = new Vector2(-3f, 0f);
             var apWarnTmp = apWarnGo.AddComponent<TMPro.TextMeshProUGUI>();
-            apWarnTmp.text = "行動値不足";
+            apWarnTmp.text = "AP不足";
             apWarnTmp.fontSize = 13f;
             apWarnTmp.color = new Color(1f, 0.3f, 0.3f, 1f);
             apWarnTmp.fontStyle = TMPro.FontStyles.Bold;
@@ -831,12 +842,11 @@ public class CardController : MonoBehaviour,
 
 
     /// <summary>
-    /// カードの使用可能明滅演出を開始
+    /// カードの使用可能明滅演出を開始（グローバル時間同期）
     /// </summary>
     public void StartGlowPulse()
     {
-        if (_glowPulseCoroutine != null) return;
-        _glowPulseCoroutine = StartCoroutine(GlowPulseCoroutine());
+        _glowActive = true;
     }
 
     /// <summary>
@@ -844,62 +854,12 @@ public class CardController : MonoBehaviour,
     /// </summary>
     public void StopGlowPulse()
     {
-        if (_glowPulseCoroutine != null)
-        {
-            StopCoroutine(_glowPulseCoroutine);
-            _glowPulseCoroutine = null;
-        }
+        _glowActive = false;
         if (glowOverlay != null)
         {
             var c = glowOverlay.color;
             c.a = 0f;
             glowOverlay.color = c;
-        }
-    }
-
-    /// <summary>
-    /// 2〜3秒間隔でふわっと光る明滅コルーチン
-    /// </summary>
-    private System.Collections.IEnumerator GlowPulseCoroutine()
-    {
-        // カードごとにスタートをずらして同時発光を防ぐ
-        yield return new WaitForSeconds(UnityEngine.Random.Range(0f, 1.5f));
-
-        while (true)
-        {
-            yield return new WaitForSeconds(UnityEngine.Random.Range(1.8f, 2.8f));
-
-            float dur = 0.5f;
-            float elapsed = 0f;
-            while (elapsed < dur)
-            {
-                elapsed += Time.deltaTime;
-                if (glowOverlay == null) yield break;
-                var c = glowOverlay.color;
-                c.a = Mathf.Lerp(0f, 0.32f, elapsed / dur);
-                glowOverlay.color = c;
-                yield return null;
-            }
-
-            yield return new WaitForSeconds(0.2f);
-
-            elapsed = 0f;
-            while (elapsed < dur)
-            {
-                elapsed += Time.deltaTime;
-                if (glowOverlay == null) yield break;
-                var c = glowOverlay.color;
-                c.a = Mathf.Lerp(0.32f, 0f, elapsed / dur);
-                glowOverlay.color = c;
-                yield return null;
-            }
-
-            if (glowOverlay != null)
-            {
-                var c = glowOverlay.color;
-                c.a = 0f;
-                glowOverlay.color = c;
-            }
         }
     }
 

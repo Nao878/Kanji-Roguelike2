@@ -187,8 +187,26 @@ public class RouteMapManager : MonoBehaviour
 
         CreateTMP(mapPanel.transform, "▲ ルート選択 ▲", new Vector2(0f, 0.945f), new Vector2(1f, 1f), 30, new Color(1f, 0.9f, 0.3f), FontStyles.Bold);
 
+        // デッキ編成ボタン（右上）
+        var deckBtnGo = new GameObject("DeckManagementBtn");
+        deckBtnGo.transform.SetParent(mapPanel.transform, false);
+        var deckBtnRect = deckBtnGo.AddComponent<RectTransform>();
+        deckBtnRect.anchorMin = new Vector2(0.72f, 0.945f);
+        deckBtnRect.anchorMax = new Vector2(0.99f, 0.998f);
+        deckBtnRect.offsetMin = Vector2.zero;
+        deckBtnRect.offsetMax = Vector2.zero;
+        deckBtnGo.AddComponent<Image>().color = new Color(0.08f, 0.32f, 0.48f, 0.95f);
+        var deckEditBtn = deckBtnGo.AddComponent<Button>();
+        var deckBtnColors = deckEditBtn.colors;
+        deckBtnColors.normalColor      = new Color(0.08f, 0.32f, 0.48f, 0.95f);
+        deckBtnColors.highlightedColor = new Color(0.18f, 0.48f, 0.68f, 1f);
+        deckBtnColors.pressedColor     = new Color(0.04f, 0.18f, 0.30f, 1f);
+        deckEditBtn.colors = deckBtnColors;
+        CreateTMP(deckBtnGo.transform, "デッキ編成", Vector2.zero, Vector2.one, 14f, Color.white, FontStyles.Bold);
+        deckEditBtn.onClick.AddListener(OpenDeckManagement);
+
         if (AkudamaCount > 0)
-            CreateTMP(mapPanel.transform, $"悪玉: {AkudamaCount}個", new Vector2(0.75f, 0.945f), new Vector2(1f, 1f), 18, new Color(0.8f, 0.3f, 1f));
+            CreateTMP(mapPanel.transform, $"悪玉: {AkudamaCount}個", new Vector2(0f, 0.945f), new Vector2(0.28f, 1f), 16, new Color(0.8f, 0.3f, 1f));
 
         // ステージを下から上へ描画（最下段が現在のステージ）
         int stageCount = stages.Count;
@@ -721,6 +739,56 @@ public class RouteMapManager : MonoBehaviour
 
         gm.ChangeState(GameState.Battle);
         bm.StartBattle(wolfData);
+    }
+
+    // ============================================
+    // デッキ編成（マップ画面から開く）
+    // ============================================
+
+    private void OpenDeckManagement()
+    {
+        if (mapCanvas == null) FindMapCanvas();
+        if (mapCanvas == null) return;
+
+        var panel = new GameObject("MapDeckPanel");
+        panel.transform.SetParent(mapCanvas.transform, false);
+        panel.transform.SetAsLastSibling();
+
+        var panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+        panel.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.10f, 0.97f);
+
+        var dmUI = panel.AddComponent<DeckManagementUI>();
+        if (appFont != null) dmUI.appFont = appFont;
+
+        StartCoroutine(OverrideDeckUIButtons(panel, dmUI));
+    }
+
+    private IEnumerator OverrideDeckUIButtons(GameObject panel, DeckManagementUI dmUI)
+    {
+        yield return null; // Start()の実行を待つ
+
+        if (dmUI.saveAndExitButton != null)
+        {
+            dmUI.saveAndExitButton.onClick.RemoveAllListeners();
+            dmUI.saveAndExitButton.onClick.AddListener(() =>
+            {
+                var dm = DeckManager.Instance ?? GameManager.Instance?.deckManager;
+                if (dm != null && dm.IsDeckValid())
+                    Destroy(panel);
+            });
+        }
+
+        if (dmUI.closeButton != null)
+        {
+            dmUI.closeButton.onClick.RemoveAllListeners();
+            dmUI.closeButton.onClick.AddListener(() => Destroy(panel));
+            var closeLabel = dmUI.closeButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (closeLabel != null) closeLabel.text = "ルートへ戻る";
+        }
     }
 
     // ============================================
