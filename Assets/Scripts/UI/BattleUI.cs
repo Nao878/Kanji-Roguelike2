@@ -39,6 +39,12 @@ public class BattleUI : MonoBehaviour
     private List<CardController> handCards = new List<CardController>();
     private Button _fleeButton;
 
+    // ドローボタンAP演出UI
+    private Image _drawButtonGlowOverlay;
+    private TextMeshProUGUI _drawButtonWarningText;
+    private GameObject _drawButtonStrikeline;
+    private Coroutine _drawPulseCoroutine;
+
     // シールドUI
     private Transform shieldContainer;
     private List<GameObject> shieldUIObjects = new List<GameObject>();
@@ -78,6 +84,10 @@ public class BattleUI : MonoBehaviour
             if (drawCardButton != null)
                 drawCardButton.onClick.AddListener(OnDrawCardClicked);
         }
+
+        // ドローボタンAP演出UI要素を追加
+        if (drawCardButton != null)
+            SetupDrawButtonAPElements();
 
         // 「逃げる」ボタンを動的生成
         CreateFleeButton();
@@ -258,6 +268,8 @@ public class BattleUI : MonoBehaviour
             var cardCtrl = CreateDraggableCard(card);
             if (cardCtrl != null) handCards.Add(cardCtrl);
         }
+
+        UpdateCardPulses();
     }
 
     /// <summary>
@@ -293,6 +305,19 @@ public class BattleUI : MonoBehaviour
         cardCtrl.cardBackground = bg;
         cardCtrl.canvasGroup = canvasGroup;
         cardCtrl.appFont = appFont;
+
+        // カードグロウオーバーレイ（使用可能時の明滅用 - テキストより下のレイヤー）
+        var cardGlowGo = new GameObject("CardGlowOverlay");
+        cardGlowGo.transform.SetParent(go.transform, false);
+        var cardGlowRect = cardGlowGo.AddComponent<RectTransform>();
+        cardGlowRect.anchorMin = Vector2.zero;
+        cardGlowRect.anchorMax = Vector2.one;
+        cardGlowRect.offsetMin = Vector2.zero;
+        cardGlowRect.offsetMax = Vector2.zero;
+        var cardGlowImg = cardGlowGo.AddComponent<Image>();
+        cardGlowImg.color = new Color(1f, 0.9f, 0.5f, 0f);
+        cardGlowImg.raycastTarget = false;
+        cardCtrl.glowOverlay = cardGlowImg;
 
         // 漢字テキスト
         var kanjiGo = new GameObject("KanjiText");
@@ -785,6 +810,9 @@ public class BattleUI : MonoBehaviour
         // シールドコンテナが未生成なら再作成（遅延初期化対応）
         if (shieldContainer == null) CreateShieldUI();
         UpdateShieldUI();
+
+        UpdateDrawButtonAPState();
+        UpdateCardPulses();
     }
 
     /// <summary>
@@ -927,6 +955,180 @@ public class BattleUI : MonoBehaviour
             emTmp.raycastTarget = false;
             if (appFont != null) emTmp.font = appFont;
             shieldUIObjects.Add(emptyGo);
+        }
+    }
+
+    /// <summary>
+    /// ドローボタンにAP演出UI要素（グロウ・横線・警告テキスト）を追加
+    /// </summary>
+    private void SetupDrawButtonAPElements()
+    {
+        var parent = drawCardButton.transform;
+
+        // ホワイトグロウオーバーレイ（明滅用）
+        var glowGo = new GameObject("GlowOverlay");
+        glowGo.transform.SetParent(parent, false);
+        var glowRect = glowGo.AddComponent<RectTransform>();
+        glowRect.anchorMin = Vector2.zero;
+        glowRect.anchorMax = Vector2.one;
+        glowRect.offsetMin = Vector2.zero;
+        glowRect.offsetMax = Vector2.zero;
+        _drawButtonGlowOverlay = glowGo.AddComponent<Image>();
+        _drawButtonGlowOverlay.color = new Color(1f, 1f, 1f, 0f);
+        _drawButtonGlowOverlay.raycastTarget = false;
+        glowGo.transform.SetAsLastSibling();
+
+        // 取り消し横線
+        var strikeGo = new GameObject("APStrikeline");
+        strikeGo.transform.SetParent(parent, false);
+        var strikeRect = strikeGo.AddComponent<RectTransform>();
+        strikeRect.anchorMin = new Vector2(0.05f, 0.42f);
+        strikeRect.anchorMax = new Vector2(0.95f, 0.58f);
+        strikeRect.offsetMin = Vector2.zero;
+        strikeRect.offsetMax = Vector2.zero;
+        var strikeImg = strikeGo.AddComponent<Image>();
+        strikeImg.color = new Color(1f, 0.25f, 0.25f, 0.9f);
+        strikeImg.raycastTarget = false;
+        _drawButtonStrikeline = strikeGo;
+
+        // 「行動値不足」警告テキスト
+        var warnGo = new GameObject("APWarningText");
+        warnGo.transform.SetParent(parent, false);
+        var warnRect = warnGo.AddComponent<RectTransform>();
+        warnRect.anchorMin = new Vector2(0f, 0f);
+        warnRect.anchorMax = new Vector2(1f, 0.42f);
+        warnRect.offsetMin = new Vector2(2f, 2f);
+        warnRect.offsetMax = new Vector2(-2f, 0f);
+        _drawButtonWarningText = warnGo.AddComponent<TextMeshProUGUI>();
+        _drawButtonWarningText.text = "行動値不足";
+        _drawButtonWarningText.fontSize = 10f;
+        _drawButtonWarningText.color = new Color(1f, 0.3f, 0.3f, 1f);
+        _drawButtonWarningText.fontStyle = TMPro.FontStyles.Bold;
+        _drawButtonWarningText.alignment = TextAlignmentOptions.Center;
+        _drawButtonWarningText.raycastTarget = false;
+        if (appFont != null) _drawButtonWarningText.font = appFont;
+
+        _drawButtonStrikeline.SetActive(false);
+        _drawButtonWarningText.gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// ドローボタンのAP状態に応じたUI（明滅・横線・警告）を更新
+    /// </summary>
+    private void UpdateDrawButtonAPState()
+    {
+        if (drawCardButton == null) return;
+        var gm = GameManager.Instance;
+        bool playerTurn = gm?.battleManager != null &&
+                          gm.battleManager.battleState == BattleManager.BattleState.PlayerTurn;
+        bool hasAP = gm != null && gm.playerMana >= 1;
+        bool apShort = !hasAP;
+        bool canPulse = playerTurn && hasAP;
+
+        // AP不足UI表示切り替え
+        if (_drawButtonStrikeline != null) _drawButtonStrikeline.SetActive(apShort);
+        if (_drawButtonWarningText != null) _drawButtonWarningText.gameObject.SetActive(apShort);
+
+        // ボタン半透明化
+        var img = drawCardButton.GetComponent<Image>();
+        if (img != null)
+        {
+            var c = img.color;
+            c.a = apShort ? 0.5f : 0.92f;
+            img.color = c;
+        }
+
+        // 明滅コルーチン制御
+        if (canPulse)
+        {
+            if (_drawPulseCoroutine == null)
+                _drawPulseCoroutine = StartCoroutine(PulseDrawButton());
+        }
+        else
+        {
+            if (_drawPulseCoroutine != null)
+            {
+                StopCoroutine(_drawPulseCoroutine);
+                _drawPulseCoroutine = null;
+            }
+            if (_drawButtonGlowOverlay != null)
+            {
+                var c = _drawButtonGlowOverlay.color;
+                c.a = 0f;
+                _drawButtonGlowOverlay.color = c;
+            }
+        }
+    }
+
+    /// <summary>
+    /// ドローボタンをふわっと光らせる（AP1以上・プレイヤーターン時）
+    /// </summary>
+    private System.Collections.IEnumerator PulseDrawButton()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(UnityEngine.Random.Range(1.8f, 2.5f));
+
+            float dur = 0.45f;
+            float elapsed = 0f;
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                if (_drawButtonGlowOverlay != null)
+                {
+                    var c = _drawButtonGlowOverlay.color;
+                    c.a = Mathf.Lerp(0f, 0.28f, elapsed / dur);
+                    _drawButtonGlowOverlay.color = c;
+                }
+                yield return null;
+            }
+
+            yield return new WaitForSeconds(0.15f);
+
+            elapsed = 0f;
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                if (_drawButtonGlowOverlay != null)
+                {
+                    var c = _drawButtonGlowOverlay.color;
+                    c.a = Mathf.Lerp(0.28f, 0f, elapsed / dur);
+                    _drawButtonGlowOverlay.color = c;
+                }
+                yield return null;
+            }
+
+            if (_drawButtonGlowOverlay != null)
+            {
+                var c = _drawButtonGlowOverlay.color;
+                c.a = 0f;
+                _drawButtonGlowOverlay.color = c;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 手札カードの使用可能状態に応じて明滅演出を開始／停止
+    /// </summary>
+    private void UpdateCardPulses()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+        bool playerTurn = gm.battleManager != null &&
+                          gm.battleManager.battleState == BattleManager.BattleState.PlayerTurn;
+
+        foreach (var card in handCards)
+        {
+            if (card == null) continue;
+            bool canUse = false;
+            if (playerTurn && card.cardData != null)
+            {
+                int cost = GameManager.GetCardAPCost(card.cardData);
+                canUse = cost == 0 || gm.playerMana >= cost;
+            }
+
+            if (canUse) card.StartGlowPulse();
+            else card.StopGlowPulse();
         }
     }
 

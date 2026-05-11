@@ -55,6 +55,10 @@ public class CardController : MonoBehaviour,
     // 攻撃ボタン管理（静的）
     private static GameObject activeAttackButton = null;
 
+    // 使用可能明滅演出
+    [HideInInspector] public Image glowOverlay;
+    private Coroutine _glowPulseCoroutine;
+
     // コールバック
     public System.Action onCardUsed;
     public System.Action onHandChanged;
@@ -767,6 +771,47 @@ public class CardController : MonoBehaviour,
         });
 
         activeAttackButton = btnGo;
+
+        // AP不足時の視覚フィードバック（横線 + 「行動値不足」テキスト）
+        var gmCheck = GameManager.Instance;
+        int cardCostCheck = GameManager.GetCardAPCost(cardData);
+        if (cardCostCheck > 0 && gmCheck != null && gmCheck.playerMana < cardCostCheck)
+        {
+            // ボタン半透明化
+            bg.color = new Color(bg.color.r, bg.color.g, bg.color.b, 0.5f);
+            var btnColorsAP = btn.colors;
+            btnColorsAP.normalColor = bg.color;
+            btn.colors = btnColorsAP;
+
+            // 取り消し横線
+            var strikelineGo = new GameObject("APStrikeline");
+            strikelineGo.transform.SetParent(btnGo.transform, false);
+            var strikelineRect = strikelineGo.AddComponent<RectTransform>();
+            strikelineRect.anchorMin = new Vector2(0.03f, 0.42f);
+            strikelineRect.anchorMax = new Vector2(0.97f, 0.58f);
+            strikelineRect.offsetMin = Vector2.zero;
+            strikelineRect.offsetMax = Vector2.zero;
+            var strikelineImg = strikelineGo.AddComponent<Image>();
+            strikelineImg.color = new Color(1f, 0.25f, 0.25f, 0.9f);
+            strikelineImg.raycastTarget = false;
+
+            // 「行動値不足」テキスト
+            var apWarnGo = new GameObject("APWarning");
+            apWarnGo.transform.SetParent(btnGo.transform, false);
+            var apWarnRect = apWarnGo.AddComponent<RectTransform>();
+            apWarnRect.anchorMin = new Vector2(0f, 0f);
+            apWarnRect.anchorMax = new Vector2(1f, 0.4f);
+            apWarnRect.offsetMin = new Vector2(3f, 2f);
+            apWarnRect.offsetMax = new Vector2(-3f, 0f);
+            var apWarnTmp = apWarnGo.AddComponent<TMPro.TextMeshProUGUI>();
+            apWarnTmp.text = "行動値不足";
+            apWarnTmp.fontSize = 13f;
+            apWarnTmp.color = new Color(1f, 0.3f, 0.3f, 1f);
+            apWarnTmp.fontStyle = TMPro.FontStyles.Bold;
+            apWarnTmp.alignment = TMPro.TextAlignmentOptions.Center;
+            apWarnTmp.raycastTarget = false;
+            if (appFont != null) apWarnTmp.font = appFont;
+        }
     }
 
 
@@ -784,6 +829,79 @@ public class CardController : MonoBehaviour,
 
 
 
+
+    /// <summary>
+    /// カードの使用可能明滅演出を開始
+    /// </summary>
+    public void StartGlowPulse()
+    {
+        if (_glowPulseCoroutine != null) return;
+        _glowPulseCoroutine = StartCoroutine(GlowPulseCoroutine());
+    }
+
+    /// <summary>
+    /// カードの使用可能明滅演出を停止
+    /// </summary>
+    public void StopGlowPulse()
+    {
+        if (_glowPulseCoroutine != null)
+        {
+            StopCoroutine(_glowPulseCoroutine);
+            _glowPulseCoroutine = null;
+        }
+        if (glowOverlay != null)
+        {
+            var c = glowOverlay.color;
+            c.a = 0f;
+            glowOverlay.color = c;
+        }
+    }
+
+    /// <summary>
+    /// 2〜3秒間隔でふわっと光る明滅コルーチン
+    /// </summary>
+    private System.Collections.IEnumerator GlowPulseCoroutine()
+    {
+        // カードごとにスタートをずらして同時発光を防ぐ
+        yield return new WaitForSeconds(UnityEngine.Random.Range(0f, 1.5f));
+
+        while (true)
+        {
+            yield return new WaitForSeconds(UnityEngine.Random.Range(1.8f, 2.8f));
+
+            float dur = 0.5f;
+            float elapsed = 0f;
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                if (glowOverlay == null) yield break;
+                var c = glowOverlay.color;
+                c.a = Mathf.Lerp(0f, 0.32f, elapsed / dur);
+                glowOverlay.color = c;
+                yield return null;
+            }
+
+            yield return new WaitForSeconds(0.2f);
+
+            elapsed = 0f;
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                if (glowOverlay == null) yield break;
+                var c = glowOverlay.color;
+                c.a = Mathf.Lerp(0.32f, 0f, elapsed / dur);
+                glowOverlay.color = c;
+                yield return null;
+            }
+
+            if (glowOverlay != null)
+            {
+                var c = glowOverlay.color;
+                c.a = 0f;
+                glowOverlay.color = c;
+            }
+        }
+    }
 
     public static void ClearAttackButton()
     {
