@@ -901,7 +901,7 @@ public class BattleUI : MonoBehaviour
             exTmp.text = $"+{excessCount}";
             exTmp.fontSize = 22f;
             exTmp.fontStyle = TMPro.FontStyles.Bold;
-            exTmp.alignment = TMPro.TextAlignmentOptions.MiddleLeft;
+            exTmp.alignment = TMPro.TextAlignmentOptions.Left;
             exTmp.color = new Color(0.6f, 0.9f, 1f, 1f);
             exTmp.raycastTarget = false;
             if (appFont != null) exTmp.font = appFont;
@@ -922,7 +922,7 @@ public class BattleUI : MonoBehaviour
             emTmp.text = "盾 0枚";
             emTmp.fontSize = 18f;
             emTmp.fontStyle = TMPro.FontStyles.Bold;
-            emTmp.alignment = TMPro.TextAlignmentOptions.MiddleLeft;
+            emTmp.alignment = TMPro.TextAlignmentOptions.Left;
             emTmp.color = new Color(1f, 0.4f, 0.4f, 0.9f);
             emTmp.raycastTarget = false;
             if (appFont != null) emTmp.font = appFont;

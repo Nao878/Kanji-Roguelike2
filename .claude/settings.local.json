@@ -36,7 +36,21 @@
       "Bash(timeout 2 echo done *)",
       "Bash(timeout 3 echo waiting *)",
       "Bash(timeout 5 echo battle *)",
-      "Bash(timeout 5 echo transition *)"
+      "Bash(timeout 5 echo transition *)",
+      "Bash(Get-Item \"C:\\\\Users\\\\yanao\\\\.claude\\\\.mcp.json\" -ErrorAction SilentlyContinue)",
+      "Bash(Get-Item \"C:\\\\Users\\\\yanao\\\\Github2\\\\Kanji-Roguelike2\\\\.mcp.json\" -ErrorAction SilentlyContinue)",
+      "Bash(Get-Item \"C:\\\\Users\\\\yanao\\\\.mcp.json\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(try { $response = Invoke-WebRequest -Uri \"http://127.0.0.1:8080\" -TimeoutSec 3 -ErrorAction Stop; Write-Output \"STATUS: $\\($response.StatusCode\\)\"; Write-Output \"CONTENT: $\\($response.Content.Substring\\(0, [Math]::Min\\(500, $response.Content.Length\\)\\)\\)\" } catch { Write-Output \"ERROR: $\\($_.Exception.Message\\)\" })",
+      "PowerShell($endpoints = @\\(\"/sse\", \"/mcp\", \"/mcp/sse\", \"/unity\", \"/api\"\\); foreach \\($ep in $endpoints\\) { try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:8080$ep\" -TimeoutSec 3 -ErrorAction Stop; Write-Output \"OK $ep : $\\($r.StatusCode\\)\" } catch { Write-Output \"FAIL $ep : $\\($_.Exception.Message\\)\" } })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:8080/mcp\" -Method POST -Headers @{\"Content-Type\"=\"application/json\"; \"Accept\"=\"application/json\"} -Body '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"claude-code\",\"version\":\"1.0\"}}}' -TimeoutSec 5 -ErrorAction Stop; Write-Output \"STATUS: $\\($r.StatusCode\\)\"; Write-Output $r.Content } catch { Write-Output \"ERROR: $\\($_.Exception.Message\\)\"; if \\($_.Exception.Response\\) { Write-Output \"HTTP: $\\($_.Exception.Response.StatusCode\\)\" } })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://127.0.0.1:8080/mcp\" -Method POST -Headers @{\"Content-Type\"=\"application/json\"; \"Accept\"=\"application/json, text/event-stream\"} -Body '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' -TimeoutSec 5 -ErrorAction Stop; Write-Output \"STATUS: $\\($r.StatusCode\\)\"; Write-Output $r.Content } catch { $ex = $_.Exception; Write-Output \"ERROR: $\\($ex.Message\\)\"; try { $reader = New-Object System.IO.StreamReader\\($ex.Response.GetResponseStream\\(\\)\\); Write-Output \"BODY: $\\($reader.ReadToEnd\\(\\)\\)\" } catch {} })",
+      "PowerShell($body = '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}'; $headers = @{\"Content-Type\"=\"application/json\"; \"Accept\"=\"application/json, text/event-stream\"}; $req = [System.Net.WebRequest]::Create\\(\"http://127.0.0.1:8080/mcp\"\\); $req.Method = \"POST\"; $req.ContentType = \"application/json\"; foreach \\($h in $headers.GetEnumerator\\(\\)\\) { if \\($h.Key -ne \"Content-Type\"\\) { $req.Headers.Add\\($h.Key, $h.Value\\) } }; $bytes = [System.Text.Encoding]::UTF8.GetBytes\\($body\\); $req.ContentLength = $bytes.Length; $stream = $req.GetRequestStream\\(\\); $stream.Write\\($bytes, 0, $bytes.Length\\); $stream.Close\\(\\); $resp = $req.GetResponse\\(\\); Write-Output \"Headers:\"; $resp.Headers.AllKeys | ForEach-Object { Write-Output \"  $_ : $\\($resp.Headers[$_]\\)\" }; $reader = New-Object System.IO.StreamReader\\($resp.GetResponseStream\\(\\)\\); Write-Output \"Body: $\\($reader.ReadToEnd\\(\\)\\)\")",
+      "PowerShell($body = '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}'; $wr = Invoke-WebRequest -Uri \"http://127.0.0.1:8080/mcp\" -Method POST -ContentType \"application/json\" -Headers @{\"Accept\"=\"application/json, text/event-stream\"} -Body $body -UseBasicParsing -TimeoutSec 5; Write-Output \"=== Response Headers ===\"; $wr.Headers.Keys | ForEach-Object { Write-Output \"$_ : $\\($wr.Headers[$_]\\)\" }; Write-Output \"=== Body ===\"; Write-Output $wr.Content)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "unity"
+  ],
+  "enableAllProjectMcpServers": true
 }
