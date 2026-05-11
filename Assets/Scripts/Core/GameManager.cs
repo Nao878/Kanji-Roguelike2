@@ -513,14 +513,15 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーにダメージ（シールドが残っていれば先にシールドを破壊）
+    /// プレイヤーにダメージ（シールドが命綱：シールド0枚でダメージを受けるとゲームオーバー）
     /// </summary>
     public void TakeDamage(int damage)
     {
         int actualDamage = Mathf.Max(0, damage - playerDefenseBuff);
+        if (actualDamage <= 0) return;
 
         // シールドトリガー：ダメージをシールドで受け止める
-        if (shields.Count > 0 && actualDamage > 0)
+        if (shields.Count > 0)
         {
             var brokenShield = shields[shields.Count - 1];
             shields.RemoveAt(shields.Count - 1);
@@ -533,7 +534,6 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                // 手札満杯時は山札の底へ
                 drawPile.Insert(0, brokenShield);
                 Debug.Log($"[GameManager] シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ");
                 battleManager?.AddBattleLog($"<color=#00FFFF>シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ。</color>");
@@ -542,32 +542,42 @@ public class GameManager : MonoBehaviour
             if (AudioManager.Instance != null)
                 AudioManager.Instance.PlaySE(AudioManager.Instance.seButton50);
 
-            // シールド・手札UIを更新
             battleManager?.battleUI?.UpdateShieldUI();
             battleManager?.battleUI?.UpdateHandUI();
-            return; // HPへのダメージなし
+            return; // シールドがダメージを完全吸収
         }
 
-        playerHP = Mathf.Max(0, playerHP - actualDamage);
-        Debug.Log($"[GameManager] プレイヤーが{actualDamage}ダメージ受けた HP:{playerHP}");
-
-        if (AudioManager.Instance != null && actualDamage > 0)
+        // シールドが0枚 → ゲームオーバー
+        Debug.Log($"[GameManager] シールド0枚！ {actualDamage}ダメージでゲームオーバー");
+        battleManager?.AddBattleLog($"<color=#FF2222><b>シールドが尽きた！</b></color>");
+        if (AudioManager.Instance != null)
             AudioManager.Instance.PlaySE(AudioManager.Instance.seButton38);
-
-        if (playerHP <= 0)
-        {
-            ChangeState(GameState.GameOver);
-        }
+        playerHP = 0; // 既存のゲームオーバー検出との互換性を維持
+        ChangeState(GameState.GameOver);
     }
 
     /// <summary>
-    /// プレイヤーを回復（オーバーヒール対応：上限はMaxHP×2）
+    /// プレイヤーを回復 → シールド1枚追加（HPシステム廃止のためシールドで代替）
     /// </summary>
     public void Heal(int amount)
     {
-        int maxOverheal = playerMaxHP * 2;
-        playerHP = Mathf.Min(maxOverheal, playerHP + amount);
-        Debug.Log($"[GameManager] HP回復 +{amount} → HP:{playerHP}/{playerMaxHP}（上限:{maxOverheal}）");
+        if (shields.Count >= maxShields)
+        {
+            Debug.Log($"[GameManager] シールドが上限（{maxShields}枚）に達しているため追加不可");
+            return;
+        }
+        KanjiCardData newShield = null;
+        if (drawPile.Count > 0) { newShield = drawPile[0]; drawPile.RemoveAt(0); }
+        else if (discardPile.Count > 0) { newShield = discardPile[discardPile.Count - 1]; discardPile.RemoveAt(discardPile.Count - 1); }
+        else if (inventory.Count > 0) { newShield = inventory[UnityEngine.Random.Range(0, inventory.Count)]; }
+
+        if (newShield != null)
+        {
+            shields.Add(newShield);
+            Debug.Log($"[GameManager] 回復→シールド追加 『{newShield.kanji}』（合計{shields.Count}枚）");
+            battleManager?.AddBattleLog($"<color=#00AAFF>シールドが1枚追加された！（合計{shields.Count}枚）</color>");
+            battleManager?.battleUI?.UpdateShieldUI();
+        }
     }
 
     /// <summary>

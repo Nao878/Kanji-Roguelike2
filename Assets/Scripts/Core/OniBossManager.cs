@@ -88,22 +88,21 @@ public class OniBossManager : MonoBehaviour
         }
         else
         {
-            // countdown == 0
-            battleManager.AddBattleLog("<color=#FF0000><b>【死星・零】発動！！</b></color>");
-            int damage = 999;
+            // countdown == 0 → 全シールド消滅 → ゲームオーバー
+            battleManager.AddBattleLog("<color=#FF0000><b>【死星・零】発動！！全シールドが消滅！</b></color>");
             if (GameManager.Instance != null)
             {
-                damage = GameManager.Instance.playerMaxHP * 2; // Maximum HP * 2
-                GameManager.Instance.TakeDamage(damage);
+                GameManager.Instance.shields.Clear();
+                battleManager.battleUI?.UpdateShieldUI();
+                GameManager.Instance.playerHP = 0;
+                GameManager.Instance.ChangeState(GameState.GameOver);
             }
-            
+
             if (battleManager.battleUI != null && VFXManager.Instance != null)
             {
-                GameObject target = battleManager.battleUI.playerHPText != null ? battleManager.battleUI.playerHPText.gameObject : battleManager.battleUI.gameObject;
-                VFXManager.Instance.PlayDamageEffect(target, damage, true);
+                GameObject target = battleManager.battleUI.playerManaText != null ? battleManager.battleUI.playerManaText.gameObject : battleManager.battleUI.gameObject;
+                VFXManager.Instance.PlayDamageEffect(target, 999, true);
             }
-            
-            battleManager.AddBattleLog($"プレイヤーは即死級のダメージ（{damage}）を受けた！");
         }
 
         // Wait a bit, then end enemy turn

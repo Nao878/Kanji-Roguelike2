@@ -540,7 +540,8 @@ public class MapManager : MonoBehaviour
                     Debug.Log("[MapManager] 大当たり！ HP全回復 & 50G獲得");
                     if (GameManager.Instance != null)
                     {
-                        GameManager.Instance.playerHP = GameManager.Instance.playerMaxHP;
+                        // HPシステム廃止のためシールド3枚追加に変更
+                        for (int _i = 0; _i < 3; _i++) GameManager.Instance.Heal(1);
                         GameManager.Instance.playerGold += 50;
                         UpdateMapUI();
                         UpdateGoldDisplay();

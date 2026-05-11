@@ -185,10 +185,10 @@ public class RouteMapManager : MonoBehaviour
         bg.offsetMax = Vector2.zero;
         mapPanel.AddComponent<Image>().color = new Color(0.04f, 0.04f, 0.08f, 0.97f);
 
-        CreateTMP(mapPanel.transform, "▲ ルート選択 ▲", new Vector2(0f, 0.93f), new Vector2(1f, 1f), 22, new Color(1f, 0.9f, 0.3f), FontStyles.Bold);
+        CreateTMP(mapPanel.transform, "▲ ルート選択 ▲", new Vector2(0f, 0.945f), new Vector2(1f, 1f), 30, new Color(1f, 0.9f, 0.3f), FontStyles.Bold);
 
         if (AkudamaCount > 0)
-            CreateTMP(mapPanel.transform, $"悪玉: {AkudamaCount}個", new Vector2(0.75f, 0.93f), new Vector2(1f, 1f), 16, new Color(0.8f, 0.3f, 1f));
+            CreateTMP(mapPanel.transform, $"悪玉: {AkudamaCount}個", new Vector2(0.75f, 0.945f), new Vector2(1f, 1f), 18, new Color(0.8f, 0.3f, 1f));
 
         // ステージを下から上へ描画（最下段が現在のステージ）
         int stageCount = stages.Count;
@@ -217,14 +217,15 @@ public class RouteMapManager : MonoBehaviour
         lineGo.transform.SetParent(mapPanel.transform, false);
         var lineRect = lineGo.AddComponent<RectTransform>();
         lineRect.anchorMin = new Vector2(0f, guideY);
-        lineRect.anchorMax = new Vector2(1f, guideY + 0.01f);
+        lineRect.anchorMax = new Vector2(1f, guideY + 0.005f);
         lineRect.offsetMin = Vector2.zero;
         lineRect.offsetMax = Vector2.zero;
         lineGo.AddComponent<Image>().color = new Color(1f, 0.9f, 0.3f, 0.4f);
 
+        // 「選択してください」を画面上部の固定エリアに配置（ノードと被らないよう）
         CreateTMP(mapPanel.transform, "◀ 選択してください ▶",
-            new Vector2(0f, guideY + 0.01f), new Vector2(1f, guideY + stageH),
-            14, new Color(1f, 0.85f, 0.3f, 0.8f));
+            new Vector2(0f, 0.89f), new Vector2(1f, 0.945f),
+            21, new Color(1f, 0.85f, 0.3f, 0.9f));
     }
 
     private void DrawNode(RouteNode node, float cx, float cy, bool selectable)
@@ -252,7 +253,7 @@ public class RouteMapManager : MonoBehaviour
         string visLabel = node.isVisited ? "✓" : icon;
 
         CreateTMP(go.transform, visLabel + "\n" + label,
-            Vector2.zero, Vector2.one, 12,
+            Vector2.zero, Vector2.one, 18,
             node.isVisited ? new Color(0.5f, 0.5f, 0.5f) : Color.white);
 
         if (selectable)

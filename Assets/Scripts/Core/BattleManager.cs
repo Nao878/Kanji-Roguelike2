@@ -433,16 +433,16 @@ public class BattleManager : MonoBehaviour
                 if (wolfBossManager != null && wolfBossManager.IsBloodCard(card))
                 {
                     wolfBossManager.ApplyBloodSelfDamage();
-                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
-                        VFXManager.Instance.PlayDamageEffect(battleUI.playerHPText.gameObject, wolfBossManager.bloodDamage, true);
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerManaText != null)
+                        VFXManager.Instance.PlayDamageEffect(battleUI.playerManaText.gameObject, wolfBossManager.bloodDamage, true);
                 }
                 break;
 
             case CardEffectType.Defense:
                 gm.playerDefenseBuff += defenseValue;
                 AddBattleLog($"『{card.DisplayName}』で防御力+{defenseValue}！");
-                if (VFXManager.Instance != null && battleUI != null && battleUI.playerHPText != null)
-                    VFXManager.Instance.PlayDefenseVFX(battleUI.playerHPText.transform.position);
+                if (VFXManager.Instance != null && battleUI != null && battleUI.playerManaText != null)
+                    VFXManager.Instance.PlayDefenseVFX(battleUI.playerManaText.transform.position);
                 break;
 
             case CardEffectType.Heal:
@@ -459,12 +459,10 @@ public class BattleManager : MonoBehaviour
                 }
                 else
                 {
-                    int healVal = card.effectValue + card.defenseModifier;
-                    gm.Heal(healVal);
-                    AddBattleLog($"『{card.DisplayName}』でHP{healVal}回復！");
+                    AddBattleLog($"<color=#888888>『{card.DisplayName}』を使用したが、追加するカードがない。</color>");
                 }
-                if (VFXManager.Instance != null && battleUI != null && battleUI.playerHPText != null)
-                    VFXManager.Instance.PlayDefenseVFX(battleUI.playerHPText.transform.position);
+                if (VFXManager.Instance != null && battleUI != null && battleUI.playerManaText != null)
+                    VFXManager.Instance.PlayDefenseVFX(battleUI.playerManaText.transform.position);
                 break;
 
             case CardEffectType.Buff:
@@ -477,15 +475,15 @@ public class BattleManager : MonoBehaviour
                 int spAtkVal = attackValue;
                 enemyCurrentHP = Mathf.Max(0, enemyCurrentHP - spAtkVal);
                 int healAmount = Mathf.CeilToInt(spAtkVal * 0.6f);
-                gm.Heal(healAmount);
-                AddBattleLog($"『{card.DisplayName}』で{spAtkVal}ダメージ＋{healAmount}回復！");
+                gm.Heal(healAmount); // HPシステム廃止済み → シールド1枚追加
+                AddBattleLog($"『{card.DisplayName}』で{spAtkVal}ダメージ＋シールド吸収！");
                 if (battleUI != null && battleUI.enemyKanjiText != null && VFXManager.Instance != null)
                 {
                     VFXManager.Instance.PlayDamageEffect(battleUI.enemyKanjiText.gameObject, spAtkVal);
                     if (!isMirrorClash)
                         VFXManager.Instance.PlayAttackHitVFX(battleUI.enemyKanjiText.transform.position);
-                    if (battleUI.playerHPText != null)
-                        VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, healAmount);
+                    if (battleUI.playerManaText != null)
+                        VFXManager.Instance.SpawnHealNumber(battleUI.playerManaText.transform.position, healAmount);
                 }
                 break;
 
@@ -579,7 +577,7 @@ public class BattleManager : MonoBehaviour
 
             if (battleUI != null && VFXManager.Instance != null)
             {
-                GameObject target = battleUI.playerHPText != null ? battleUI.playerHPText.gameObject : battleUI.gameObject;
+                GameObject target = battleUI.playerManaText != null ? battleUI.playerManaText.gameObject : battleUI.gameObject;
                 VFXManager.Instance.PlayDamageEffect(target, damage, true);
             }
         }
@@ -951,7 +949,9 @@ public class BattleManager : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
+        // プレイヤーHPシステム廃止 - HP表示を非表示
+        if (playerHPText != null) playerHPText.gameObject.SetActive(false);
+
         if (playerManaText != null)
         {
             playerManaText.gameObject.SetActive(true);
@@ -1074,8 +1074,8 @@ public class BattleManager : MonoBehaviour
                 {
                     if (GameManager.Instance != null) GameManager.Instance.TakeDamage(effect.Value);
                     AddBattleLog($"<color=#9932CC>毒ダメージ！ プレイヤーは{effect.Value}のダメージを受けた。</color>");
-                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
-                        VFXManager.Instance.PlayDamageEffect(battleUI.playerHPText.gameObject, effect.Value, true);
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerManaText != null)
+                        VFXManager.Instance.PlayDamageEffect(battleUI.playerManaText.gameObject, effect.Value, true);
                 }
                 else
                 {
@@ -1091,11 +1091,11 @@ public class BattleManager : MonoBehaviour
                 if (isPlayer)
                 {
                     if (GameManager.Instance != null) GameManager.Instance.Heal(effect.Value);
-                    AddBattleLog($"<color=#32CD32>リジェネ回復！ プレイヤーは{effect.Value}回復した。</color>");
-                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerHPText != null)
+                    AddBattleLog($"<color=#32CD32>リジェネ回復！ シールドが1枚追加された。</color>");
+                    if (battleUI != null && VFXManager.Instance != null && battleUI.playerManaText != null)
                     {
-                        VFXManager.Instance.PlayHealVFX(battleUI.playerHPText.transform.position);
-                        VFXManager.Instance.SpawnHealNumber(battleUI.playerHPText.transform.position, effect.Value);
+                        VFXManager.Instance.PlayHealVFX(battleUI.playerManaText.transform.position);
+                        VFXManager.Instance.SpawnHealNumber(battleUI.playerManaText.transform.position, 1);
                     }
                 }
                 else

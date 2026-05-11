@@ -50,13 +50,13 @@ public class WolfBossManager : MonoBehaviour
         _bloodCard = null;
         _battleUI = _bm?.battleUI;
 
-        // 第一形態：プレイヤーの現在HPと同程度に設定
+        // 第一形態：プレイヤーのシールド枚数×10に設定（HPシステム廃止のためシールド準拠）
         if (_bm != null && _bm.currentEnemyData != null && GameManager.Instance != null)
         {
-            int playerHP = GameManager.Instance.playerHP;
-            _bm.currentEnemyData.maxHP = playerHP;
-            _bm.enemyCurrentHP = playerHP;
-            Debug.Log($"[WolfBossManager] 狼ボス戦開始！ 第一形態HP={playerHP}（プレイヤーHP準拠）");
+            int wolfHP = Mathf.Max(30, GameManager.Instance.shields.Count * 10);
+            _bm.currentEnemyData.maxHP = wolfHP;
+            _bm.enemyCurrentHP = wolfHP;
+            Debug.Log($"[WolfBossManager] 狼ボス戦開始！ 第一形態HP={wolfHP}（シールド{GameManager.Instance.shields.Count}枚準拠）");
         }
         else
         {
@@ -112,15 +112,10 @@ public class WolfBossManager : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        gm.playerHP = Mathf.Max(0, gm.playerHP - bloodDamage);
-        _bm?.AddBattleLog($"<color=#990000><b>血の反動！ 自分に{bloodDamage}ダメージ！</b></color>");
+        _bm?.AddBattleLog($"<color=#990000><b>血の反動！ シールドに{bloodDamage}ダメージ！</b></color>");
         Debug.Log($"[WolfBossManager] 血カード自傷ダメージ: {bloodDamage}");
-
-        // プレイヤーHP0チェック
-        if (gm.playerHP <= 0)
-        {
-            gm.ChangeState(GameState.GameOver);
-        }
+        // TakeDamageでシールドトリガー or ゲームオーバー
+        gm.TakeDamage(bloodDamage);
     }
 
     /// <summary>

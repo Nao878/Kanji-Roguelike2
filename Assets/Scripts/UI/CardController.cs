@@ -623,8 +623,8 @@ public class CardController : MonoBehaviour,
             }
             else
             {
-                // 回復・防御はプレイヤーHPテキスト等の付近
-                targetTransform = battleUI.playerHPText?.transform ?? transform;
+                // 回復・防御はプレイヤーAPテキスト等の付近
+                targetTransform = battleUI.playerManaText?.transform ?? transform;
             }
 
             string actionText = GetActionPredictText(gm, cardData);

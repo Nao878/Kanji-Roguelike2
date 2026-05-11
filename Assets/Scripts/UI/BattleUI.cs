@@ -87,8 +87,8 @@ public class BattleUI : MonoBehaviour
         AddButtonSE(fusionButton);
         AddButtonSE(drawCardButton);
 
-        if (playerHPBar == null && playerHPText != null)
-            playerHPBar = CreateHPBar(playerHPText.transform, false);
+        // プレイヤーHPバーは廃止（シールドシステムに一本化）
+        if (playerHPText != null) playerHPText.gameObject.SetActive(false);
         if (enemyHPBar == null && enemyHPText != null)
             enemyHPBar = CreateHPBar(enemyHPText.transform, true);
 
@@ -750,30 +750,16 @@ public class BattleUI : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        if (playerHPText != null) playerHPText.text = $"HP: {gm.playerHP}/{gm.playerMaxHP}";
+        // プレイヤーHP廃止 - HP表示を非表示
+        if (playerHPText != null) playerHPText.gameObject.SetActive(false);
+
         if (playerManaText != null)
         {
             playerManaText.gameObject.SetActive(true);
-            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}";
-        }
-
-        if (playerHPBar != null)
-        {
-            playerHPBar.SetHP(gm.playerHP, gm.playerMaxHP);
             string buffText = "";
-            if (gm.playerAttackBuff > 0) buffText += $"攻↑+{gm.playerAttackBuff} ";
-            if (gm.playerDefenseBuff > 0) buffText += $"防↑+{gm.playerDefenseBuff} ";
-            
-            if (gm.battleManager != null)
-            {
-                foreach (var effect in gm.battleManager.playerStatusEffects)
-                {
-                    if (effect.Type == StatusType.Poison) buffText += $"<color=#9932CC>[毒{effect.Duration}T]</color> ";
-                    if (effect.Type == StatusType.Regen) buffText += $"<color=#32CD32>[癒{effect.Duration}T]</color> ";
-                }
-            }
-
-            playerHPBar.SetStatusIcon(buffText.Trim());
+            if (gm.playerAttackBuff > 0) buffText += $" 攻↑+{gm.playerAttackBuff}";
+            if (gm.playerDefenseBuff > 0) buffText += $" 防↑+{gm.playerDefenseBuff}";
+            playerManaText.text = $"AP: {gm.playerMana}/{gm.playerMaxMana}{buffText}";
         }
 
         if (gm.battleManager != null && gm.battleManager.currentEnemyData != null)
@@ -825,31 +811,30 @@ public class BattleUI : MonoBehaviour
         containerGo.transform.SetParent(canvas.transform, false);
 
         var containerRect = containerGo.AddComponent<RectTransform>();
-        // 画面左下寄りの固定位置（HP表示の近く）
+        // 画面左上に小型シールドを並べる（HPバー廃止により上に移動）
         containerRect.anchorMin = new Vector2(0f, 1f);
         containerRect.anchorMax = new Vector2(0f, 1f);
         containerRect.pivot = new Vector2(0f, 1f);
-        containerRect.anchoredPosition = new Vector2(8f, -120f); // HP表示の下に配置
-        containerRect.sizeDelta = new Vector2(300f, 110f);
+        containerRect.anchoredPosition = new Vector2(8f, -60f);
+        containerRect.sizeDelta = new Vector2(500f, 60f);
 
         var hLayout = containerGo.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
-        hLayout.spacing = 8f;
+        hLayout.spacing = 4f;
         hLayout.childAlignment = TextAnchor.MiddleLeft;
         hLayout.childForceExpandWidth = false;
         hLayout.childForceExpandHeight = false;
-        hLayout.padding = new RectOffset(4, 4, 4, 4);
+        hLayout.padding = new RectOffset(2, 2, 2, 2);
 
         shieldContainer = containerGo.transform;
     }
 
     /// <summary>
-    /// シールドUI更新（手持ちシールド枚数に合わせて裏向きカードを表示）
+    /// シールドUI更新（最大10個表示、超過分は「+N」テキストで表示）
     /// </summary>
     public void UpdateShieldUI()
     {
         if (shieldContainer == null) return;
 
-        // 既存を削除
         foreach (var obj in shieldUIObjects)
             if (obj != null) Destroy(obj);
         shieldUIObjects.Clear();
@@ -857,32 +842,37 @@ public class BattleUI : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        for (int i = 0; i < gm.shields.Count; i++)
+        const int maxDisplayShields = 10;
+        int actualCount = gm.shields.Count;
+        int displayCount = Mathf.Min(actualCount, maxDisplayShields);
+        int excessCount = actualCount - displayCount;
+
+        for (int i = 0; i < displayCount; i++)
         {
             var shieldGo = new GameObject($"Shield_{i}");
             shieldGo.transform.SetParent(shieldContainer, false);
 
             var rect = shieldGo.AddComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(88f, 100f);
+            rect.sizeDelta = new Vector2(38f, 50f);
 
             var le = shieldGo.AddComponent<UnityEngine.UI.LayoutElement>();
-            le.preferredWidth = 88f;
-            le.preferredHeight = 100f;
-            le.minWidth = 88f;
-            le.minHeight = 100f;
+            le.preferredWidth = 38f;
+            le.preferredHeight = 50f;
+            le.minWidth = 38f;
+            le.minHeight = 50f;
 
             var bg = shieldGo.AddComponent<UnityEngine.UI.Image>();
-            bg.color = new Color(0.1f, 0.3f, 0.7f, 0.9f);
+            bg.color = new Color(0.1f, 0.3f, 0.7f, 0.92f);
 
             var border = shieldGo.AddComponent<Outline>();
             border.effectColor = new Color(0.4f, 0.7f, 1f, 0.9f);
-            border.effectDistance = new Vector2(2f, -2f);
+            border.effectDistance = new Vector2(1.5f, -1.5f);
 
             var textGo = new GameObject("ShieldText");
             textGo.transform.SetParent(shieldGo.transform, false);
             var tmp = textGo.AddComponent<TMPro.TextMeshProUGUI>();
             tmp.text = "?";
-            tmp.fontSize = 46f;
+            tmp.fontSize = 22f;
             tmp.fontStyle = TMPro.FontStyles.Bold;
             tmp.alignment = TMPro.TextAlignmentOptions.Center;
             tmp.color = new Color(0.7f, 0.9f, 1f, 1f);
@@ -897,27 +887,46 @@ public class BattleUI : MonoBehaviour
             shieldUIObjects.Add(shieldGo);
         }
 
-        // シールドがない場合は灰色のスロット表示
-        if (gm.shields.Count == 0)
+        // 超過分を「+N」テキストで表示
+        if (excessCount > 0)
         {
-            for (int i = 0; i < gm.maxShields; i++)
-            {
-                var emptyGo = new GameObject($"ShieldEmpty_{i}");
-                emptyGo.transform.SetParent(shieldContainer, false);
-                var rect = emptyGo.AddComponent<RectTransform>();
-                rect.sizeDelta = new Vector2(88f, 100f);
-                var le2 = emptyGo.AddComponent<UnityEngine.UI.LayoutElement>();
-                le2.preferredWidth = 88f;
-                le2.preferredHeight = 100f;
-                le2.minWidth = 88f;
-                le2.minHeight = 100f;
-                var bg = emptyGo.AddComponent<UnityEngine.UI.Image>();
-                bg.color = new Color(0.2f, 0.2f, 0.2f, 0.4f);
-                var border = emptyGo.AddComponent<Outline>();
-                border.effectColor = new Color(0.4f, 0.4f, 0.4f, 0.5f);
-                border.effectDistance = new Vector2(2f, -2f);
-                shieldUIObjects.Add(emptyGo);
-            }
+            var excessGo = new GameObject("ShieldExcess");
+            excessGo.transform.SetParent(shieldContainer, false);
+            var excessRect = excessGo.AddComponent<RectTransform>();
+            excessRect.sizeDelta = new Vector2(48f, 50f);
+            var exLe = excessGo.AddComponent<UnityEngine.UI.LayoutElement>();
+            exLe.preferredWidth = 48f;
+            exLe.preferredHeight = 50f;
+            var exTmp = excessGo.AddComponent<TMPro.TextMeshProUGUI>();
+            exTmp.text = $"+{excessCount}";
+            exTmp.fontSize = 22f;
+            exTmp.fontStyle = TMPro.FontStyles.Bold;
+            exTmp.alignment = TMPro.TextAlignmentOptions.MiddleLeft;
+            exTmp.color = new Color(0.6f, 0.9f, 1f, 1f);
+            exTmp.raycastTarget = false;
+            if (appFont != null) exTmp.font = appFont;
+            shieldUIObjects.Add(excessGo);
+        }
+
+        // シールドが0枚の場合は「シールド0」と赤く表示
+        if (actualCount == 0)
+        {
+            var emptyGo = new GameObject("ShieldZero");
+            emptyGo.transform.SetParent(shieldContainer, false);
+            var emptyRect = emptyGo.AddComponent<RectTransform>();
+            emptyRect.sizeDelta = new Vector2(90f, 50f);
+            var emLe = emptyGo.AddComponent<UnityEngine.UI.LayoutElement>();
+            emLe.preferredWidth = 90f;
+            emLe.preferredHeight = 50f;
+            var emTmp = emptyGo.AddComponent<TMPro.TextMeshProUGUI>();
+            emTmp.text = "盾 0枚";
+            emTmp.fontSize = 18f;
+            emTmp.fontStyle = TMPro.FontStyles.Bold;
+            emTmp.alignment = TMPro.TextAlignmentOptions.MiddleLeft;
+            emTmp.color = new Color(1f, 0.4f, 0.4f, 0.9f);
+            emTmp.raycastTarget = false;
+            if (appFont != null) emTmp.font = appFont;
+            shieldUIObjects.Add(emptyGo);
         }
     }
 
