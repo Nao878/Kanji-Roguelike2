@@ -259,6 +259,9 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"[GameManager] ゲーム初期化完了 HP:{playerHP} マナ:{playerMana} インベントリ:{inventory.Count}枚");
 
+        // 特殊カード「分」をインベントリに追加（未存在の場合）
+        EnsureBunCardExists();
+
         // 合成レシピDictionaryを初期化
         InitializeFusionRecipes();
 
@@ -313,7 +316,7 @@ public class GameManager : MonoBehaviour
                     "ターン開始時にAPが<color=#00FFFF>3</color>回復します。\n\n" +
                     "<b>AP消費：1</b>  攻撃・回復・特殊カード\n" +
                     "<b>AP消費：0</b>  バフ・防御・ドローカード\n\n" +
-                    "<b>【合体で 1 MORE!】</b>\n" +
+                    "<b>【合体で AP+1!】</b>\n" +
                     "漢字を合体させると<color=#FFD700>APが1回復</color>します！\n" +
                     "AP不足でもコンボを繋げるのが攻略の鍵！\n\n" +
                     "<b>【ドロー】</b>\n" +
@@ -421,6 +424,15 @@ public class GameManager : MonoBehaviour
                 drawPile.RemoveAt(0);
                 hand.Add(card);
                 drawn++;
+
+                // 「行」ドロー時即時効果: AP+1 ＋ APハイライト演出
+                if (card != null && card.kanji == "行")
+                {
+                    playerMana += 1;
+                    battleManager?.AddBattleLog("<color=#FFD700><b>『行』をドロー！即時 AP+1！</b></color>");
+                    battleManager?.battleUI?.PlayAPHighlightEffect();
+                    Debug.Log("[GameManager] 『行』ドロー効果: AP+1");
+                }
             }
         }
 
@@ -520,24 +532,15 @@ public class GameManager : MonoBehaviour
         int actualDamage = Mathf.Max(0, damage - playerDefenseBuff);
         if (actualDamage <= 0) return;
 
-        // シールドトリガー：ダメージをシールドで受け止める
+        // シールドトリガー：ダメージをシールドで受け止める（手札上限なしで常に手札へ）
         if (shields.Count > 0)
         {
             var brokenShield = shields[shields.Count - 1];
             shields.RemoveAt(shields.Count - 1);
 
-            if (hand.Count < initialHandSize)
-            {
-                hand.Add(brokenShield);
-                Debug.Log($"[GameManager] シールドトリガー！『{brokenShield.kanji}』が手札に加わった！");
-                battleManager?.AddBattleLog($"<color=#00FFFF><b>シールドトリガー！『{brokenShield.kanji}』が手札に加わった！</b></color>");
-            }
-            else
-            {
-                drawPile.Insert(0, brokenShield);
-                Debug.Log($"[GameManager] シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ");
-                battleManager?.AddBattleLog($"<color=#00FFFF>シールドトリガー！手札満杯のため『{brokenShield.kanji}』を山札の底へ。</color>");
-            }
+            hand.Add(brokenShield);
+            Debug.Log($"[GameManager] シールドトリガー！『{brokenShield.kanji}』が手札に加わった！");
+            battleManager?.AddBattleLog($"<color=#00FFFF><b>シールドトリガー！『{brokenShield.kanji}』が手札に加わった！</b></color>");
 
             if (AudioManager.Instance != null)
                 AudioManager.Instance.PlaySE(AudioManager.Instance.seButton50);
@@ -858,6 +861,30 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"[GameManager] 『{card.kanji}』を分解しました");
         return true;
+    }
+
+    /// <summary>
+    /// 特殊カード「分」が存在しない場合、動的生成してインベントリに追加
+    /// </summary>
+    private void EnsureBunCardExists()
+    {
+        bool hasBun = false;
+        foreach (var c in inventory)
+            if (c != null && c.kanji == "分") { hasBun = true; break; }
+        if (hasBun) return;
+
+        var bunCard = ScriptableObject.CreateInstance<KanjiCardData>();
+        bunCard.cardId        = 9001;
+        bunCard.kanji         = "分";
+        bunCard.cardName      = "分解";
+        bunCard.description   = "合体済みカードを素材に分解する";
+        bunCard.cost          = 0;
+        bunCard.effectType    = CardEffectType.Buff;
+        bunCard.effectValue   = 0;
+        bunCard.componentCount = 1;
+        bunCard.isFusionResult = false;
+        inventory.Add(bunCard);
+        Debug.Log("[GameManager] 特殊カード『分』をインベントリに追加しました");
     }
 
     // ==== 後方互換用（他スクリプトからの参照用）====

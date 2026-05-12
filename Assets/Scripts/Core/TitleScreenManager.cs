@@ -16,6 +16,7 @@ public class TitleScreenManager : MonoBehaviour
     private GameObject titleOverlay;
     private CanvasGroup titleCG;
     private bool isTutorialMode = false;
+    private bool _tutorialStarted = false; // 二重起動完全防止フラグ
 
     private void Awake()
     {
@@ -66,6 +67,26 @@ public class TitleScreenManager : MonoBehaviour
 
         var bg = titleOverlay.AddComponent<Image>();
         bg.color = new Color(0.02f, 0.02f, 0.05f, 1f);
+
+        // 画面全体を覆う透明ボタン（スマホタップ対応・信頼性の高いUI検出）
+        var tapBtnGo = new GameObject("TapToStartButton");
+        tapBtnGo.transform.SetParent(titleOverlay.transform, false);
+        var tapRect = tapBtnGo.AddComponent<RectTransform>();
+        tapRect.anchorMin = Vector2.zero;
+        tapRect.anchorMax = Vector2.one;
+        tapRect.offsetMin = Vector2.zero;
+        tapRect.offsetMax = Vector2.zero;
+        var tapImg = tapBtnGo.AddComponent<Image>();
+        tapImg.color = new Color(0f, 0f, 0f, 0f); // 完全透明
+        var tapBtn = tapBtnGo.AddComponent<Button>();
+        var tapColors = tapBtn.colors;
+        tapColors.highlightedColor = new Color(1f, 1f, 1f, 0.02f);
+        tapColors.pressedColor     = new Color(1f, 1f, 1f, 0.04f);
+        tapColors.normalColor      = new Color(0f, 0f, 0f, 0f);
+        tapBtn.colors = tapColors;
+        tapBtn.onClick.AddListener(() => {
+            if (isTutorialMode) StartCoroutine(StartTutorialBattle());
+        });
 
         titleCG = titleOverlay.AddComponent<CanvasGroup>();
         titleCG.alpha = 0f;
@@ -133,6 +154,9 @@ public class TitleScreenManager : MonoBehaviour
         // 点滅コルーチン
         StartCoroutine(BlinkText(clickTmp));
 
+        // 透明ボタンを最前面（最後のSibling）に移動してレイキャストを確実に受け取る
+        tapBtnGo.transform.SetAsLastSibling();
+
         // フェードイン
         StartCoroutine(FadeIn());
     }
@@ -190,6 +214,8 @@ public class TitleScreenManager : MonoBehaviour
 
     private IEnumerator StartTutorialBattle()
     {
+        if (_tutorialStarted) yield break;
+        _tutorialStarted = true;
         isTutorialMode = false; // 二重起動防止
 
         // フェードアウト

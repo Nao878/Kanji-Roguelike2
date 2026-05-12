@@ -426,7 +426,7 @@ public class VFXManager : MonoBehaviour
         textRect.sizeDelta = new Vector2(600f, 200f);
 
         var tmp = textObj.AddComponent<TextMeshProUGUI>();
-        tmp.text = "1 MORE!";
+        tmp.text = "AP+1!";
         tmp.fontSize = 120;
         tmp.color = new Color(1f, 0.84f, 0f, 1f);
         tmp.alignment = TextAlignmentOptions.Center;
@@ -792,6 +792,56 @@ public class VFXManager : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         callback?.Invoke();
+    }
+
+    // ===========================================
+    // AP増加ハイライト（バウンス演出）
+    // ===========================================
+
+    /// <summary>
+    /// AP増加時にAP表示がバウンス＋金色点滅する演出
+    /// </summary>
+    public void PlayAPHighlightEffect(RectTransform apTextRect)
+    {
+        if (apTextRect == null) return;
+        StartCoroutine(CoAPHighlight(apTextRect));
+    }
+
+    private IEnumerator CoAPHighlight(RectTransform rect)
+    {
+        if (rect == null) yield break;
+        var graphic = rect.GetComponent<Graphic>();
+        Color originalColor = graphic != null ? graphic.color : Color.white;
+        Vector3 originalScale = rect.localScale;
+
+        // 金色に変化しながらスケールアップ
+        float elapsed = 0f;
+        float scaleUpDur = 0.15f;
+        while (elapsed < scaleUpDur)
+        {
+            if (rect == null) yield break;
+            float t = elapsed / scaleUpDur;
+            rect.localScale = Vector3.Lerp(originalScale, originalScale * 1.55f, t);
+            if (graphic != null) graphic.color = Color.Lerp(originalColor, new Color(1f, 0.9f, 0.1f, 1f), t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // バウンス（大 → 標準）
+        elapsed = 0f;
+        float bounceDur = 0.22f;
+        while (elapsed < bounceDur)
+        {
+            if (rect == null) yield break;
+            float t = elapsed / bounceDur;
+            rect.localScale = Vector3.Lerp(originalScale * 1.55f, originalScale, t);
+            if (graphic != null) graphic.color = Color.Lerp(new Color(1f, 0.9f, 0.1f, 1f), originalColor, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (rect != null) rect.localScale = originalScale;
+        if (graphic != null) graphic.color = originalColor;
     }
 
     // ===========================================

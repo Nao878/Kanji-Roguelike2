@@ -49,7 +49,11 @@
       "PowerShell($body = '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}'; $wr = Invoke-WebRequest -Uri \"http://127.0.0.1:8080/mcp\" -Method POST -ContentType \"application/json\" -Headers @{\"Accept\"=\"application/json, text/event-stream\"} -Body $body -UseBasicParsing -TimeoutSec 5; Write-Output \"=== Response Headers ===\"; $wr.Headers.Keys | ForEach-Object { Write-Output \"$_ : $\\($wr.Headers[$_]\\)\" }; Write-Output \"=== Body ===\"; Write-Output $wr.Content)",
       "mcp__unity__read_console",
       "mcp__unity__manage_editor",
-      "mcp__unity__execute_code"
+      "mcp__unity__execute_code",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('mcpServers', {}\\), indent=2\\)\\)\")",
+      "Bash(curl -s --max-time 3 http://127.0.0.1:8080/mcp)",
+      "Bash(curl -s --max-time 5 http://127.0.0.1:8080/mcp -H \"Accept: text/event-stream\" -H \"Content-Type: application/json\" --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}')",
+      "Bash(python3 *)"
     ]
   },
   "enableAllProjectMcpServers": true,

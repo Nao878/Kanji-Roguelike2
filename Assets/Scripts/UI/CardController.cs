@@ -374,8 +374,12 @@ public class CardController : MonoBehaviour,
         if (originalParent != null)
         {
             transform.SetParent(originalParent, false);
+            transform.localScale = Vector3.one; // ドラッグ後スケール崩れ防止
+            var p = transform.localPosition;
+            p.z = 0f;
+            transform.localPosition = p;
             transform.SetSiblingIndex(originalSiblingIndex);
-            rectTransform.anchoredPosition = originalPosition;
+            // HorizontalLayoutGroupが位置を管理するため anchoredPosition は設定しない
         }
     }
 

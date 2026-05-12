@@ -314,8 +314,8 @@ public class BattleManager : MonoBehaviour
         {
             isMirrorClash = true;
             attackValue *= 3; // 確定クリティカル（特大ダメージ）
-            // Mirror Clash特典：ボーナスドロー1枚（合体AP回復とは別の特殊ボーナス）
-            if (gm.hand.Count < gm.initialHandSize) gm.DrawFromDeck(1);
+            // Mirror Clash特典：ボーナスドロー1枚（手札上限なし）
+            gm.DrawFromDeck(1);
             AddBattleLog("<color=#FF0000><b>相殺（Mirror Clash）発動！特大ダメージ ＆ ボーナスドロー！</b></color>");
             if (VFXManager.Instance != null && battleUI != null)
             {
@@ -416,6 +416,41 @@ public class BattleManager : MonoBehaviour
         // 次回コンボの布石を記憶
         lastPlayedKanji = card.kanji;
         lastPlayedElement = card.element;
+
+        // 「分」カード：手札内の合体済みカードを分解して素材に戻す
+        if (card.kanji == "分")
+        {
+            KanjiCardData fusedTarget = null;
+            foreach (var c in gm.hand)
+            {
+                if (c != null && c.isFusionResult && c.kanji != "分")
+                {
+                    fusedTarget = c;
+                    break;
+                }
+            }
+            if (fusedTarget != null)
+            {
+                string fusedName = fusedTarget.kanji;
+                bool success = gm.DecomposeCard(fusedTarget);
+                if (success)
+                {
+                    AddBattleLog($"<color=#FFD700><b>『分』発動！『{fusedName}』を分解！素材カードが手札に加わった！</b></color>");
+                    if (VFXManager.Instance != null && battleUI != null)
+                        VFXManager.Instance.PlayComboEffect(battleUI.gameObject, $"分解！\n{fusedName}→素材", new Color(1f, 0.85f, 0.1f));
+                }
+                else
+                {
+                    AddBattleLog("<color=#888888>分解に失敗しました。</color>");
+                }
+            }
+            else
+            {
+                AddBattleLog("<color=#888888>『分』：手札に合体済みカードがありません。</color>");
+            }
+            if (battleUI != null) { battleUI.UpdateHandUI(); battleUI.UpdateStatusUI(); }
+            return; // 他の効果は発動しない
+        }
 
         switch (card.effectType)
         {

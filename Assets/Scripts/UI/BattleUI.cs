@@ -55,6 +55,8 @@ public class BattleUI : MonoBehaviour
 
     private void Start()
     {
+        SetupScrollHandArea();
+
         if (endTurnButton != null)
         {
             endTurnButton.onClick.AddListener(OnEndTurnClicked);
@@ -282,6 +284,13 @@ public class BattleUI : MonoBehaviour
         }
 
         UpdateCardPulses();
+
+        // ContentSizeFitter を即時反映させてカードを正しく並べる
+        if (handArea != null)
+        {
+            var handRect = handArea.GetComponent<RectTransform>();
+            if (handRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(handRect);
+        }
     }
 
     /// <summary>
@@ -294,6 +303,10 @@ public class BattleUI : MonoBehaviour
         // カードオブジェクト作成
         var go = new GameObject($"Card_{data.kanji}");
         go.transform.SetParent(handArea, false);
+        go.transform.localScale = Vector3.one;      // スケール0バグ防止
+        var goPos = go.transform.localPosition;
+        goPos.z = 0f;
+        go.transform.localPosition = goPos;         // Z軸ズレ防止
         go.tag = "Card";
 
         var rect = go.AddComponent<RectTransform>();
@@ -379,22 +392,22 @@ public class BattleUI : MonoBehaviour
         descRect.offsetMax = new Vector2(-3f, 0);
         cardCtrl.descriptionText = descText;
 
-        // 合成プレビュー（頭上に半透明テキスト）
+        // 合成プレビュー（カード上部内に収める → RectMask2Dにクリップされない）
         var previewBgGo = new GameObject("FusionPreview");
         previewBgGo.transform.SetParent(go.transform, false);
         var previewBgRect = previewBgGo.AddComponent<RectTransform>();
-        previewBgRect.anchorMin = new Vector2(0.15f, 0.92f);
-        previewBgRect.anchorMax = new Vector2(0.85f, 1.35f);
+        previewBgRect.anchorMin = new Vector2(0f, 0.76f);  // カード内の上部26%に収める
+        previewBgRect.anchorMax = new Vector2(1f, 1.0f);   // anchorMax.y<=1.0 でカード外にはみ出さない
         previewBgRect.offsetMin = Vector2.zero;
         previewBgRect.offsetMax = Vector2.zero;
         var previewBg = previewBgGo.AddComponent<Image>();
-        previewBg.color = new Color(1f, 0.9f, 0.2f, 0.4f);
+        previewBg.color = new Color(1f, 0.9f, 0.2f, 0.55f);
         previewBg.raycastTarget = false;
 
         var previewTextGo = new GameObject("PreviewText");
         previewTextGo.transform.SetParent(previewBgGo.transform, false);
         var previewText = previewTextGo.AddComponent<TextMeshProUGUI>();
-        previewText.fontSize = 28;
+        previewText.fontSize = 22;
         previewText.alignment = TextAlignmentOptions.Center;
         previewText.color = new Color(1f, 0.95f, 0.5f, 0.85f);
         previewText.raycastTarget = false;
@@ -499,6 +512,275 @@ public class BattleUI : MonoBehaviour
         badgeGo.transform.SetAsLastSibling();
     }
 
+    /// <summary>
+    /// 手札エリアにScrollRect＋Viewport(RectMask2D)＋Scrollbar＋ContentSizeFitterを設定
+    /// ・anchorMax.yを+RAISE_TOP上げてカード140pxが確実に収まるスペースを確保
+    /// ・スクロールバーのみで横スクロール（scrollSensitivity=0でホイール/スワイプ無効）
+    /// </summary>
+    private void SetupScrollHandArea()
+    {
+        if (handArea == null) return;
+
+        var existingScrollRect = handArea.GetComponentInParent<ScrollRect>();
+        if (existingScrollRect != null) return;
+
+        var handRect = handArea.GetComponent<RectTransform>();
+        if (handRect == null) return;
+        var parentOfHand = handArea.parent;
+        if (parentOfHand == null) return;
+
+        // Canvas 960x540: 元のhandArea高さ=108px。カード140px+SB22px=162px必要。
+        // RAISE_TOP=0.16 → +86.4px → 合計194.4px。OVERFLOW_TOP=8の視覚バッファと
+        // BOTTOM_MARGIN=14でスクロールバーが画面端に接しないようにする。
+        const float RAISE_TOP     = 0.16f; // anchorMax.yを上げてカードが収まるスペースを確保
+        const float OVERFLOW_TOP  = 8f;    // カード上部の小さな視覚バッファ
+        const float SB_HEIGHT     = 20f;   // スクロールバーの高さ
+        const float SB_SPACING    = 2f;    // Viewport とスクロールバーの隙間
+        const float BOTTOM_MARGIN = 14f;   // スクロールバーが画面端に接しないための下部マージン
+
+        // ── ScrollView ラッパー ──
+        var scrollViewGo = new GameObject("HandScrollView");
+        scrollViewGo.transform.SetParent(parentOfHand, false);
+        scrollViewGo.transform.SetSiblingIndex(handArea.GetSiblingIndex());
+
+        var svRect = scrollViewGo.AddComponent<RectTransform>();
+        svRect.anchorMin        = handRect.anchorMin;
+        svRect.anchorMax        = handRect.anchorMax;
+        svRect.pivot            = handRect.pivot;
+        svRect.offsetMin        = handRect.offsetMin;
+        svRect.offsetMax        = handRect.offsetMax;
+        svRect.anchoredPosition = handRect.anchoredPosition;
+        svRect.sizeDelta        = handRect.sizeDelta;
+
+        // anchorMax.yを上げてScrollViewを拡張（カード140pxを収めるための高さ確保）
+        svRect.anchorMax = new Vector2(svRect.anchorMax.x, svRect.anchorMax.y + RAISE_TOP);
+
+        // 上方向に小バッファ追加、下部に画面端マージンを確保
+        bool stretchY = !Mathf.Approximately(handRect.anchorMin.y, handRect.anchorMax.y);
+        if (stretchY)
+        {
+            svRect.offsetMax = new Vector2(svRect.offsetMax.x, svRect.offsetMax.y + OVERFLOW_TOP);
+            svRect.offsetMin = new Vector2(svRect.offsetMin.x, svRect.offsetMin.y + BOTTOM_MARGIN);
+        }
+        else
+        {
+            svRect.sizeDelta        = new Vector2(svRect.sizeDelta.x, svRect.sizeDelta.y + OVERFLOW_TOP);
+            svRect.anchoredPosition = new Vector2(svRect.anchoredPosition.x,
+                svRect.anchoredPosition.y + OVERFLOW_TOP * (1f - svRect.pivot.y) + BOTTOM_MARGIN * 0.5f);
+        }
+
+        var scrollRect = scrollViewGo.AddComponent<ScrollRect>();
+        scrollRect.horizontal        = true;
+        scrollRect.vertical          = false;
+        scrollRect.scrollSensitivity = 0f;   // スワイプ/ホイール無効 → スクロールバーのみで操作
+        scrollRect.movementType      = ScrollRect.MovementType.Clamped;
+        scrollRect.inertia           = false;
+
+        // ── Viewport (RectMask2D) ──
+        var vpGo = new GameObject("HandViewport");
+        vpGo.transform.SetParent(scrollViewGo.transform, false);
+        var vpRect = vpGo.AddComponent<RectTransform>();
+        vpRect.anchorMin = Vector2.zero;
+        vpRect.anchorMax = Vector2.one;
+        vpRect.offsetMin = Vector2.zero;  // AutoHideAndExpandViewport が自動調整
+        vpRect.offsetMax = Vector2.zero;
+        vpGo.AddComponent<RectMask2D>();
+
+        // ── handArea を Viewport の子として移動しコンテンツ化 ──
+        handArea.SetParent(vpGo.transform, false);
+        handArea.localScale   = Vector3.one;
+        handRect.anchorMin        = new Vector2(0f, 0f);
+        handRect.anchorMax        = new Vector2(0f, 1f);
+        handRect.pivot            = new Vector2(0f, 0.5f);
+        handRect.offsetMin        = Vector2.zero;
+        handRect.offsetMax        = Vector2.zero;
+        handRect.anchoredPosition = Vector2.zero;
+
+        // HorizontalLayoutGroup
+        var hLayout = handArea.GetComponent<HorizontalLayoutGroup>();
+        if (hLayout == null) hLayout = handArea.gameObject.AddComponent<HorizontalLayoutGroup>();
+        hLayout.spacing               = 8f;
+        hLayout.childAlignment        = TextAnchor.UpperLeft;
+        hLayout.childForceExpandWidth  = false;
+        hLayout.childForceExpandHeight = false;
+        hLayout.padding = new RectOffset(8, 8, (int)OVERFLOW_TOP, 8);
+
+        // ContentSizeFitter（横幅のみ自動拡張）
+        var csf = handArea.GetComponent<ContentSizeFitter>();
+        if (csf == null) csf = handArea.gameObject.AddComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit   = ContentSizeFitter.FitMode.Unconstrained;
+
+        // ── 横スクロールバー（ScrollView 直下・Viewport の外） ──
+        var sbGo = new GameObject("HandScrollbar");
+        sbGo.transform.SetParent(scrollViewGo.transform, false);
+        sbGo.transform.localScale = Vector3.one;
+
+        var sbRect = sbGo.AddComponent<RectTransform>();
+        sbRect.anchorMin        = new Vector2(0f, 0f);
+        sbRect.anchorMax        = new Vector2(1f, 0f);
+        sbRect.pivot            = new Vector2(0.5f, 0f);
+        sbRect.sizeDelta        = new Vector2(0f, SB_HEIGHT);
+        sbRect.anchoredPosition = Vector2.zero;
+
+        var sbBg = sbGo.AddComponent<Image>();
+        sbBg.color = new Color(0.10f, 0.10f, 0.14f, 0.90f);
+
+        var scrollbar = sbGo.AddComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.LeftToRight;
+
+        var slidingGo = new GameObject("SlidingArea");
+        slidingGo.transform.SetParent(sbGo.transform, false);
+        var slidingRect = slidingGo.AddComponent<RectTransform>();
+        slidingRect.anchorMin = Vector2.zero;
+        slidingRect.anchorMax = Vector2.one;
+        slidingRect.offsetMin = new Vector2(4f, 2f);
+        slidingRect.offsetMax = new Vector2(-4f, -2f);
+
+        var handleGo = new GameObject("Handle");
+        handleGo.transform.SetParent(slidingGo.transform, false);
+        var handleRect = handleGo.AddComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.offsetMin = Vector2.zero;
+        handleRect.offsetMax = Vector2.zero;
+
+        var handleImg = handleGo.AddComponent<Image>();
+        handleImg.color = new Color(0.58f, 0.60f, 0.68f, 0.96f);
+
+        scrollbar.handleRect    = handleRect;
+        scrollbar.targetGraphic = handleImg;
+        var sbColors = scrollbar.colors;
+        sbColors.normalColor      = new Color(0.58f, 0.60f, 0.68f, 0.96f);
+        sbColors.highlightedColor = new Color(0.76f, 0.78f, 0.86f, 1.00f);
+        sbColors.pressedColor     = new Color(0.36f, 0.38f, 0.44f, 1.00f);
+        scrollbar.colors = sbColors;
+
+        scrollRect.content    = handRect;
+        scrollRect.viewport   = vpRect;
+        scrollRect.horizontalScrollbar           = scrollbar;
+        scrollRect.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+        scrollRect.horizontalScrollbarSpacing    = SB_SPACING;
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(handRect);
+
+        Debug.Log("[BattleUI] 横スクロール手札UI（スクロールバー付き・クリップ修正済み）を構築しました");
+    }
+
+    /// <summary>
+    /// カードドロー時のポップアップ演出（中央に大きく表示→手札へ吸い込み）
+    /// </summary>
+    private System.Collections.IEnumerator PlayDrawCardAnimation(KanjiCardData card)
+    {
+        var canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) canvas = FindObjectOfType<Canvas>();
+        if (canvas == null || card == null) yield break;
+
+        // 中央に大きなカードゴーストを生成
+        var ghostGo = new GameObject($"DrawGhost_{card.kanji}");
+        ghostGo.transform.SetParent(canvas.transform, false);
+        ghostGo.transform.SetAsLastSibling();
+
+        var ghostRect = ghostGo.AddComponent<RectTransform>();
+        ghostRect.anchorMin       = new Vector2(0.5f, 0.5f);
+        ghostRect.anchorMax       = new Vector2(0.5f, 0.5f);
+        ghostRect.pivot           = Vector2.one * 0.5f;
+        ghostRect.sizeDelta       = new Vector2(160f, 220f);
+        ghostRect.anchoredPosition = Vector2.zero;
+
+        var ghostBg = ghostGo.AddComponent<Image>();
+        ghostBg.color = new Color(0.08f, 0.08f, 0.16f, 0.97f);
+
+        var ghostOutline = ghostGo.AddComponent<Outline>();
+        ghostOutline.effectColor    = new Color(0.3f, 0.8f, 1f, 0.9f);
+        ghostOutline.effectDistance = new Vector2(5f, -5f);
+
+        // 漢字テキスト
+        var kanjiGo = new GameObject("K");
+        kanjiGo.transform.SetParent(ghostGo.transform, false);
+        var kanjiTmp = kanjiGo.AddComponent<TextMeshProUGUI>();
+        kanjiTmp.text      = card.kanji;
+        kanjiTmp.fontSize  = 80f;
+        kanjiTmp.alignment = TextAlignmentOptions.Center;
+        kanjiTmp.color     = Color.white;
+        kanjiTmp.fontStyle = FontStyles.Bold;
+        if (appFont != null) kanjiTmp.font = appFont;
+        kanjiTmp.outlineWidth = 0.25f;
+        kanjiTmp.outlineColor = Color.black;
+        var kRect = kanjiGo.GetComponent<RectTransform>();
+        kRect.anchorMin = new Vector2(0f, 0.35f);
+        kRect.anchorMax = new Vector2(1f, 0.88f);
+        kRect.offsetMin = Vector2.zero; kRect.offsetMax = Vector2.zero;
+
+        // 効果テキスト
+        var descGo = new GameObject("Desc");
+        descGo.transform.SetParent(ghostGo.transform, false);
+        var descTmp = descGo.AddComponent<TextMeshProUGUI>();
+        descTmp.text      = card.description;
+        descTmp.fontSize  = 14f;
+        descTmp.alignment = TextAlignmentOptions.Center;
+        descTmp.color     = new Color(0.85f, 0.85f, 0.85f);
+        if (appFont != null) descTmp.font = appFont;
+        var dRect = descGo.GetComponent<RectTransform>();
+        dRect.anchorMin = new Vector2(0f, 0f);
+        dRect.anchorMax = new Vector2(1f, 0.32f);
+        dRect.offsetMin = new Vector2(4f, 4f);
+        dRect.offsetMax = new Vector2(-4f, 0f);
+
+        ghostGo.transform.localScale = Vector3.zero;
+
+        // スケールアップ
+        float t = 0f;
+        while (t < 0.18f)
+        {
+            t += Time.deltaTime;
+            ghostGo.transform.localScale = Vector3.one * Mathf.Lerp(0f, 1.25f, t / 0.18f);
+            yield return null;
+        }
+        // バウンス
+        t = 0f;
+        while (t < 0.1f)
+        {
+            t += Time.deltaTime;
+            ghostGo.transform.localScale = Vector3.one * Mathf.Lerp(1.25f, 1.0f, t / 0.1f);
+            yield return null;
+        }
+        ghostGo.transform.localScale = Vector3.one;
+
+        // 0.55秒表示
+        yield return new WaitForSeconds(0.55f);
+
+        // 手札方向（画面下）へ縮小・フェードアウト
+        var cg = ghostGo.AddComponent<CanvasGroup>();
+        Vector2 startPos = ghostRect.anchoredPosition;
+        Vector3 startScale = ghostGo.transform.localScale;
+        float moveDur = 0.28f;
+        t = 0f;
+        while (t < moveDur)
+        {
+            if (ghostGo == null) yield break;
+            t += Time.deltaTime;
+            float prog = Mathf.Clamp01(t / moveDur);
+            float eased = prog * prog;
+            ghostRect.anchoredPosition = Vector2.Lerp(startPos, new Vector2(startPos.x, startPos.y - 280f), eased);
+            ghostGo.transform.localScale = Vector3.Lerp(startScale, Vector3.one * 0.3f, eased);
+            cg.alpha = Mathf.Lerp(1f, 0f, prog * 1.6f);
+            yield return null;
+        }
+
+        if (ghostGo != null) Destroy(ghostGo);
+    }
+
+    /// <summary>
+    /// AP増加ハイライト演出（BattleUI経由でVFXManagerに委譲）
+    /// </summary>
+    public void PlayAPHighlightEffect()
+    {
+        if (playerManaText != null && VFXManager.Instance != null)
+            VFXManager.Instance.PlayAPHighlightEffect(playerManaText.GetComponent<RectTransform>());
+    }
+
     private System.Collections.IEnumerator DelayedUpdateHand()
     {
         yield return null; // 1フレーム待つ
@@ -593,12 +875,12 @@ public class BattleUI : MonoBehaviour
     }
 
     /// <summary>
-    /// ドローボタン押下：AP1消費してカードを1枚引く（AP不足時はエラーフィードバック）
+    /// ドローボタン押下：AP1消費してカードを1枚引く（手札上限なし・ドロー演出付き）
     /// </summary>
     private void OnDrawCardClicked()
     {
         var gm = GameManager.Instance;
-        if (gm == null || gm.hand.Count >= gm.initialHandSize) return;
+        if (gm == null) return;
 
         if (gm.playerMana < 1)
         {
@@ -607,9 +889,28 @@ public class BattleUI : MonoBehaviour
         }
 
         gm.playerMana -= 1;
-        // AP減少直後にUI即更新（表示ズレ防止）
         UpdateStatusUI();
+
+        // ドロー前の手札枚数を記録して新規ドロー分を特定
+        int beforeCount = gm.hand.Count;
         gm.DrawFromDeck(1);
+
+        // ドロー演出（新しく引いたカードを中央表示）
+        if (gm.hand.Count > beforeCount)
+        {
+            var drawnCard = gm.hand[gm.hand.Count - 1];
+            StartCoroutine(PlayDrawCardAnimationThenUpdate(drawnCard));
+        }
+        else
+        {
+            UpdateHandUI();
+            UpdateStatusUI();
+        }
+    }
+
+    private System.Collections.IEnumerator PlayDrawCardAnimationThenUpdate(KanjiCardData card)
+    {
+        yield return StartCoroutine(PlayDrawCardAnimation(card));
         UpdateHandUI();
         UpdateStatusUI();
     }
@@ -1237,10 +1538,7 @@ public class BattleUI : MonoBehaviour
                 var gm2 = GameManager.Instance;
                 if (gm2 != null)
                 {
-                    if (gm2.hand.Count < gm2.initialHandSize)
-                        gm2.hand.Add(capturedCard);
-                    else
-                        gm2.drawPile.Add(capturedCard);
+                    gm2.hand.Add(capturedCard);
                     gm2.AddToInventory(capturedCard);
                     gm2.battleManager?.AddBattleLog($"<color=#FFD700>『{capturedCard.kanji}』を手に入れた！</color>");
                 }
